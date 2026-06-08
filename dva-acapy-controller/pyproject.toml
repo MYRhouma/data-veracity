@@ -10,7 +10,7 @@ authors = [
 ]
 license = "Apache-2.0"
 dependencies = [
-	"fastapi~=0.120.0",
+	"fastapi~=0.136.0",
 	"httpx~=0.28.1",
 	"psycopg-pool>=3.2.8",
 	"psycopg[binary]>=3.2.13",
