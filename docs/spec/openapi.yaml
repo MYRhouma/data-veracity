@@ -123,8 +123,7 @@ paths:
                   name: JSON Schema
                   description: >-
                     Data should conform to a JSON schema.  The `schema`
-                    parameter is either an entire JSON schema string or
-                    a URL that will be resolved to a schema description.
+                    is an entire JSON schema string.
                   criterionType: VALID_INVALID
                   targetAspect: SYNTAX
                   evaluationMethod:
