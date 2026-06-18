@@ -1,0 +1,18 @@
+{
+  "id": "a3be74b8-a7dc-4c42-aa83-59b678004748",
+  "name": "TestTemplate",
+  "description": "VLA Template used for testing",
+  "criterionType": "VALID_INVALID",
+  "targetAspect": "SYNTAX",
+  "evaluationMethod": {
+    "engine": "JQ",
+    "variableSchema": {
+      "properties": {
+        "date": {
+          "type": "string"
+        }
+      }
+    },
+    "implementationTemplate": "{ success: .date == '{{ date }}' }"
+  }
+}

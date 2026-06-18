@@ -1,0 +1,173 @@
+{
+  "exchangeID": "xchg-0001",
+  "contract": {
+    "id": "contract-0001",
+    "dataProvider": "/catalog/participants/provider-test-id",
+    "dataConsumer": "/catalog/participants/consumer-test-did",
+    "serviceOffering": "/catalog/serviceofferings/serviceoffering-test-did",
+    "purpose": [
+      {
+        "purpose": "/catalog/serviceofferings",
+        "piiCategory": []
+      }
+    ],
+    "negotiators": [
+      {
+        "did": "/catalog/participants/provider-test-id"
+      },
+      {
+        "did": "/catalog/participants/consumer-test-did"
+      }
+    ],
+    "status": "pending",
+    "policy": [
+      {
+        "uid": "/policy/policy-0-uid",
+        "permission": [
+          {
+            "type": "hu.bme.mit.ftsrg.odrl.model.rule.Permission",
+            "target": "/target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7",
+            "rule": {
+              "action": "use"
+            }
+          }
+        ]
+      }
+    ],
+    "vla": {
+      "apiVersion": "v3.0.1",
+      "dataProduct": "test",
+      "id": "2e99b60d-8cf7-4668-a234-96ebfd6a2b63",
+      "kind": "DataContract",
+      "name": "test",
+      "schema": [
+        {
+          "logicalType": "object",
+          "properties": [
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "id"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "actor"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "verb"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "object"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "result"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "context"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "timestamp"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "stored"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "version"
+              }
+            }
+          ],
+          "quality": [
+            {
+              "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQualityCustom",
+              "engine": "GREAT_EXPECTATIONS",
+              "implementation": "type: ExpectColumnValuesToBeBetween\nkwargs:\n  column: timestamp\n  min_value: '2025-01-01T00:00:00Z'\n  max_value: '2026-01-01T00:00:00Z'\nmeta:\n  schema:\n    columns:\n      timestamp:\n        dtype: datetime\n",
+              "dataQuality": {
+                "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQuality",
+                "type": "custom"
+              }
+            }
+          ],
+          "schemaElement": {
+            "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+            "name": "xapi_statement"
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    }
+  },
+  "data": {
+    "actor": {
+      "name": "Jean Dupont",
+      "mbox": "mailto:jeandupont@example.com"
+    },
+    "verb": {
+      "id": "http://adlnet.gov/expapi/verbs/interacted",
+      "display": {
+        "en-US": "interacted"
+      }
+    },
+    "object": {
+      "id": "https://navy.mil/netc/xapi/activities/simulations/b9e16535-4fc9-4c66-ac87-3ad7ce515f5c/events/0221144",
+      "definition": {
+        "name": {
+          "en-US": "Event in Simulator"
+        },
+        "description": {
+          "en-US": "You're wearing all your PPE"
+        },
+        "type": "http://adlnet.gov/expapi/activities/interaction"
+      }
+    },
+    "context": {
+      "registration": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "extensions": {
+        "https://w3id.org/xapi/cmi5/context/extensions/sessionid": "moodle-session-12345"
+      }
+    },
+    "result": {
+      "success": true,
+      "extensions": {
+        "http://id.tincanapi.com/extension/severity": "info"
+      }
+    },
+    "timestamp": "2025-03-16T03:25:00Z"
+  },
+  "attesterID": "attester-0000"
+}

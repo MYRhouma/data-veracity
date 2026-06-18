@@ -1,0 +1,46 @@
+@startuml
+
+left to right direction
+
+:Data Provider: as p #line:blue;text:blue
+:Data Consumer:  as c #line:green;text:green
+:Orchestrator: as o
+:Contract Manager: as cm
+
+(Manage Templates) as uc_manage
+(Fetch Templates) as uc_templates
+(Create AoV) as uc_aov #line:blue;text:blue
+(Create PoV) as uc_pov #line:blue;text:blue
+(Check AoV) as uc_aov_c #line:green;text:green
+(Check PoV) as uc_pov_c #line:green;text:green
+
+(Verify Verifiable Credential) as uc_verif #line:green;text:green
+(Verify VC Metadata) as uc_verif_meta #line:green;text:green
+(Verify VC Content) as uc_verif_cont #line:green;text:green
+
+(Create self-attested AoV) as uc_aov_self #line:blue;text:blue
+(Get third-party AoV) as uc_aov_3 #line:blue;text:blue
+
+(Re-Evaluate Data) as uc_reev #line:green;text:green
+
+uc_aov <|-- uc_aov_3
+uc_aov <|-- uc_aov_self
+
+o --> uc_manage
+
+cm --> uc_templates
+
+uc_aov_c ..> uc_verif : <<include>>
+uc_pov_c ..> uc_verif : <<include>>
+
+uc_verif <.. uc_verif_meta : <<extend>>
+uc_verif <.. uc_verif_cont : <<extend>>
+
+uc_aov_c <.. uc_reev : <<extend>>
+
+p --> uc_aov
+p --> uc_pov
+c --> uc_aov_c
+c --> uc_pov_c
+
+@enduml

@@ -1,0 +1,86 @@
+
+{
+
+  "actor": {
+
+    "account": {
+
+      "name": "Baden-Powell",
+
+      "homePage": "https://www.inokufu.com/"
+
+    }
+
+  },
+
+  "verb": {
+
+    "id": "https://w3id.org/xapi/netc/verbs/accessed"
+
+  },
+
+  "object": {
+
+    "objectType": "Activity",
+
+    "id": "https://www.inokufu.com/learning-platform/",
+
+    "definition": {
+
+      "type": "https://w3id.org/xapi/acrossx/activities/webpage",
+
+      "name": {
+
+        "en": "Learning platform | Inokufu"
+
+      },
+
+      "extensions": {
+
+        "https://w3id.org/xapi/acrossx/extensions/type": "website"
+
+      }
+
+    }
+
+  },
+
+  "context": {
+
+    "contextActivities": {
+
+      "category": [
+
+        {
+
+          "id": "https://w3id.org/xapi/lms",
+
+          "definition": {
+
+            "type": "http://adlnet.gov/expapi/activities/profile"
+
+          },
+
+          "objectType": "Activity"
+
+        }
+
+      ]
+
+    },
+
+    "extensions": {
+
+      "http://id.tincanapi.com/extension/duration": "24s",
+
+      "http://id.tincanapi.com/extension/browser-info": "Chrome 126.0"
+
+    }
+
+  },
+
+  "version": "1.0.0",
+
+  "timestamp": "2024-07-04T18:43:13.887Z"
+
+}

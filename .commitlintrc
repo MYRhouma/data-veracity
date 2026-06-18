@@ -1,0 +1,17 @@
+---
+extends: ['@commitlint/config-conventional']
+rules:
+  type-enum:
+    - 2 # level | 1=warning 2=error
+    - always # applicable | always or never
+    -
+      - build
+      - chore
+      - ci
+      - docs
+      - feat
+      - fix
+      - misc
+      - refactor
+      - revert
+      - test

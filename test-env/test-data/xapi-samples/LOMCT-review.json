@@ -1,0 +1,36 @@
+{
+  "authority": {
+    "objectType": "Agent",
+    "name": "Mockup LOMCT write",
+    "mbox": "mailto:contact@inokufu.com"
+  },
+  "timestamp": "2024-04-10T14:17:43.686Z",
+  "version": "1.0.0",
+  "context": {
+    "extensions": {
+      "http://schema.prometheus-x.org/extension/username": "Baden-Powell",
+      "http://schema.prometheus-x.org/extension/biography": "Scouting expert"
+    },
+    "language": "en"
+  },
+  "actor": {
+    "name": "Baden-Powell",
+    "mbox": "mailto:lauriane.marxer+lomct2@inokufu.com",
+    "objectType": "Agent"
+  },
+  "verb": {
+    "id": "http://id.tincanapi.com/verb/reviewed"
+  },
+  "object": {
+    "id": "https://en.wikipedia.org/wiki/Robert_Baden-Powell,_1st_Baron_Baden-Powell"
+  },
+  "result": {
+    "score": {
+      "scaled": 1.0,
+      "raw": 4,
+      "min": 0,
+      "max": 5
+    },
+    "response": "Overall very interesting. What's missing is a section on how he came to scouting."
+  }
+}

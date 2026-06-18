@@ -1,0 +1,61 @@
+{
+  "actor": {
+    "name": "John Doe",
+    "mbox": "mailto:johndoe@example.com"
+  },
+  "verb": {
+    "id": "http://adlnet.gov/expapi/verbs/initialized",
+    "display": {
+      "en-US": "initialized"
+    }
+  },
+  "object": {
+    "id": "https://navy.mil/netc/xapi/activities/simulations/b9e16535-4fc9-4c66-ac87-3ad7ce515f5c",
+
+    "definition": {
+      "name": {
+        "en-US": "fibre welding"
+      },
+      "description": {
+        "en-US": "Simple exercise about fibre welding"
+      },
+      "type": "http://adlnet.gov/expapi/activities/simulation"
+    }
+  },
+  "context": {
+    "registration": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "contextActivities": {
+      "parent": [
+        {
+          "id": "http://mimbus.com/courses/9685",
+          "definition": {
+            "name": {
+              "en-US": "Course fibre welding"
+            },
+            "description": {
+              "en-US": "A course that includes Exercises and lessons about fibre welding"
+            },
+            "type": "http://adlnet.gov/expapi/activities/course"
+          }
+        }
+      ],
+      "category": [
+        {
+          "id": "https://w3id.org/xapi/simulation/v1.0",
+          "definition": {
+            "type": "http://id.tincanapi.com/activitytype/category",
+            "name": {
+              "en-US": "VR Exercises"
+            }
+          }
+        }
+      ],
+      "extensions": {
+        "https://w3id.org/xapi/cmi5/context/extensions/sessionid": "moodle-activity-12345"
+      }
+    },
+    "platform": "Hachette VR",
+    "language": "en-US"
+  },
+  "timestamp": "2024-03-15T09:00:00Z"
+}

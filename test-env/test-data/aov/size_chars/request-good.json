@@ -1,0 +1,188 @@
+{
+  "exchangeID": "xchg-0001",
+  "contract": {
+    "id": "contract-0001",
+    "dataProvider": "/catalog/participants/provider-test-id",
+    "dataConsumer": "/catalog/participants/consumer-test-did",
+    "serviceOffering": "/catalog/serviceofferings/serviceoffering-test-did",
+    "purpose": [
+      {
+        "purpose": "/catalog/serviceofferings",
+        "piiCategory": []
+      }
+    ],
+    "negotiators": [
+      {
+        "did": "/catalog/participants/provider-test-id"
+      },
+      {
+        "did": "/catalog/participants/consumer-test-did"
+      }
+    ],
+    "status": "pending",
+    "policy": [
+      {
+        "uid": "/policy/policy-0-uid",
+        "permission": [
+          {
+            "type": "hu.bme.mit.ftsrg.odrl.model.rule.Permission",
+            "target": "/target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7",
+            "rule": {
+              "action": "use"
+            }
+          }
+        ]
+      }
+    ],
+    "vla": {
+      "apiVersion": "v3.0.1",
+      "dataProduct": "test",
+      "id": "2e99b60d-8cf7-4668-a234-96ebfd6a2b63",
+      "kind": "DataContract",
+      "name": "test",
+      "schema": [
+        {
+          "logicalType": "object",
+          "properties": [
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "id"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "actor"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "verb"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "object"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "result"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "context"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "timestamp"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "stored"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "version"
+              }
+            }
+          ],
+          "quality": [
+            {
+              "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQualityCustom",
+              "engine": "length",
+              "implementation": "< 10000",
+              "dataQuality": {
+                "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQuality",
+                "type": "custom"
+              }
+            }
+          ],
+          "schemaElement": {
+            "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+            "name": "xapi_statement"
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    }
+  },
+  "data": [
+    {
+      "context": {
+        "extensions": {
+          "http://schema&46;prometheus-x&46;org/extension/username": "Guillaume",
+          "http://schema&46;prometheus-x&46;org/extension/biography": "PhD Candidate in AI, CTO of an EdTech Company",
+          "http://schema&46;prometheus-x&46;org/extension/bloom": "",
+          "http://schema&46;prometheus-x&46;org/extension/provider": "",
+          "http://schema&46;prometheus-x&46;org/extension/license": "",
+          "http://schema&46;prometheus-x&46;org/extension/keywords": [],
+          "http://schema&46;prometheus-x&46;org/extension/publisher": "",
+          "http://schema&46;prometheus-x&46;org/extension/author": "",
+          "http://schema&46;prometheus-x&46;org/extension/duration": "",
+          "http://schema&46;prometheus-x&46;org/extension/type": "",
+          "http://schema&46;prometheus-x&46;org/extension/level": "novice"
+        },
+        "language": "ar"
+      },
+      "actor": {
+        "objectType": "Agent",
+        "name": "Guillaume",
+        "mbox": "mailto:guillaume.lefebvre+2@inokufu.com"
+      },
+      "verb": {
+        "id": "https://w3id.org/xapi/dod-isd/verbs/proposed",
+        "display": {
+          "en-US": "proposed"
+        }
+      },
+      "object": {
+        "id": "https://www.youtube.com/watch?v=HutMCd_oBuI&url_partagé=1",
+        "definition": {
+          "name": {
+            "en": ""
+          },
+          "description": {
+            "en": ""
+          }
+        },
+        "objectType": "Activity"
+      },
+      "id": "b30f289c-ccd1-41a2-b9b2-6e1fe4c26362",
+      "timestamp": "2024-09-26T14:15:11.014Z",
+      "stored": "2024-09-26T14:15:11.014Z",
+      "authority": {
+        "objectType": "Agent",
+        "name": "Mockup LOMCT all",
+        "mbox": "mailto:contact@inokufu.com"
+      },
+      "version": "1.0.0"
+    }
+  ],
+  "attesterID": "attester-0000"
+}

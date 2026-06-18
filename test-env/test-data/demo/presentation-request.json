@@ -1,0 +1,6 @@
+{
+  "exchangeID": "xchg-0001",
+  "contractID": "contract-0001",
+  "attesterAgentURL": "http://aca-py-provider:8030",
+  "attesterAgentLabel": "provider"
+}

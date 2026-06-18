@@ -1,0 +1,1068 @@
+---
+openapi: 3.1.1
+info:
+  title: Data Veracity Assurance
+  description: |-
+    This is the API specification of the
+    [data veracity assurance building block (DVA)](https://github.com/Prometheus-X-association/data-veracity).
+  contact:
+    email: bpeter@edu.bme.hu
+  version: 0.5.1
+servers:
+  - url: http://localhost:9099
+    description: Test environment – VLA manager service
+  - url: http://localhost:9091
+    description: Test environment – provider side
+  - url: http://localhost:9092
+    description: Test environment – consumer side
+  - url: http://localhost:9090
+    description: Local development server running on default port
+  - url: '{server}'
+    description: Custom parameterizable server
+    variables:
+      server:
+        default: http://localhost:9090
+        description: Custom server URL
+tags:
+  - name: VLA
+    description: Endpoints related to veracity level agreements (VLAs)
+  - name: Templates
+    description: Endpoints related to the management of VLA templates
+  - name: AoV
+    description: Endpoints related to attestations of veracity (AoVs)
+  - name: PoV
+    description: Endpoints related to proofs of veracity (PoVs)
+  - name: Evaluation
+    description: Endpoints related to evaluating VLAs/requirements
+  - name: Info
+    description: Endpoints related to retrieving information about the running instance
+  - name: Dev
+    description: Endpoints meant to be used only for development
+  - name: Future
+    description: Endpoints that are not available yet but will be implemented in the
+      future
+paths:
+  /template:
+    post:
+      tags: [Templates]
+      summary: Create new VLA template
+      description: >
+        Add a new **VLA template** to the database.
+        An ID will be automatically generated for the template.
+        A `201 CREATED` response is given if the template has been successfully created.
+        Otherwise, you will get a `400 BAD REQUEST` (in case of invalid request data).
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+            examples:
+              PropertyValueBetween:
+                summary: Property value between min-max with GE
+                value:
+                  name: Property Value Between Min-Max
+                  description: >-
+                    The value of a JSON property has to fall between a
+                    minimum and a maximum value; evaluated using
+                    GreatExpectations
+                  criterionType: IN_RANGE
+                  targetAspect: ACCURACY
+                  evaluationMethod:
+                    engine: GREAT_EXPECTATIONS
+                    variableSchema:
+                      properties:
+                        property:
+                          type: string
+                        minimum:
+                          type: string
+                        maximum:
+                          type: string
+                    implementationTemplate: |
+                      ---
+                      type: ExpectColumnValuesToBeBetween
+                      kwargs:
+                        column: {{ property }}
+                        min_value: '{{ minimum }}'
+                        max_value: '{{ maximum }}'
+                      meta:
+                        schema:
+                          columns:
+                            {{ property }}:
+                      ...
+              PropertyNotBlank:
+                summary: Property has a non-blank value
+                value:
+                  name: Property non-blank
+                  description: >-
+                    Checks that the value of a specific JSON property is
+                    not blank (using jq)
+                  criterionType: VALID_INVALID
+                  targetAspect: COMPLETENESS
+                  evaluationMethod:
+                    engine: JQ
+                    variableSchema:
+                      properties:
+                        property:
+                          type: string
+                    implementationTemplate: >-
+                      if {{ property }} != ''
+                      then {
+                        success: true,
+                        details: '{{ property }} is a valid nonempty string'
+                      }
+                      else {
+                        success: false,
+                        details: '{{ property }} is blank'
+                      }
+                      end
+              JsonShema:
+                summary: JSON data conforms to schema
+                value:
+                  name: JSON Schema
+                  description: >-
+                    Data should conform to a JSON schema.  The `schema`
+                    parameter is either an entire JSON schema string or
+                    a URL that will be resolved to a schema description.
+                  criterionType: VALID_INVALID
+                  targetAspect: SYNTAX
+                  evaluationMethod:
+                    engine: SCHEMA
+                    variableSchema:
+                      properties:
+                        schema:
+                          type: string
+                    implementationTemplate: '{{ schema }}'
+              PropertyExpression:
+                summary: >-
+                  A property in the JSON data conforms to a simple
+                  requirement
+                value:
+                  name: JQ Property Expression
+                  description: >-
+                    A specific property in the JSON data must fulfill a
+                    basic requirement of either being equal or not equal
+                    to a given value.
+                  criterionType: VALID_INVALID
+                  targetAspect: SYNTAX
+                  evaluationMethod:
+                    engine: JQ
+                    variableSchema:
+                      properties:
+                        property:
+                          type: string
+                        operator:
+                          type: string
+                          enum: [==, '!=']
+                        operand:
+                          type: boolean
+                          enum: [true, false]
+                    implementationTemplate: >-
+                      { success: {{ property }} {{{ operand }}} {{ operator }} }
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+    get:
+      tags: [Templates]
+      summary: Get all VLA templates
+      description: >
+        Returns all available **VLA templates** from the database as an array.
+      operationId: getTemplates
+      responses:
+        '200':
+          description: The list of available VLA templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateArray'
+    delete:
+      tags: [Dev]
+      summary: Delete all VLA templatees
+      description: >
+        Delete all **VLA templates**.
+        Should always respond with `204 NO CONTENT`.
+      operationId: deleteTemplates
+      responses:
+        '204':
+          $ref: '#/components/responses/Deleted'
+  /template/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    get:
+      tags: [Templates]
+      summary: Get VLA template by ID
+      description: >
+        Queries a specific **VLA template** by its unique ID.
+        Responds either with `200 OK` and the contents of the requested template or
+        with `404 NOT FOUND` if no VLA template with the specified ID exists.
+      operationId: getTemplate
+      responses:
+        '200':
+          description: Returning requested VLA template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Templates]
+      summary: Update VLA template
+      description: >
+        Used to update an existing **VLA template** specified by its ID.
+        The request body should contain a partial VLA template object – only specified
+        fields will be updated, if possible.
+        Responds with `200 OK` if the update operation was successful or `404 NOT
+        FOUND` if no VLA template with the specified ID exists.
+      operationId: updateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateUpdate'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Templates]
+      summary: Delete VLA template
+      description: >
+        Delete a **VLA template** specified by its ID.
+        Responds `204 NO CONTENT` if the template was successfully deleted or `404  FOUND`
+        if no template with the specified ID exists.
+      operationId: deleteTemplate
+      responses:
+        '204':
+          $ref: '#/components/responses/Deleted'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /template/{id}/render:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    post:
+      tags: [Templates]
+      summary: Render a VLA template
+      description: >
+        Render a VLA template to a complete _data quality fragment_ ready to be included
+        in a VLA.
+        Responds with `200 OK` and the rendered template on success or with `400 BAD
+        REQUEST` if the template could not be rendered.
+      operationId: renderTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateModel'
+      responses:
+        '200':
+          description: The rendered template
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                engine: JQ
+                implementation: >-
+                  { success: .url == 'http://example.com' and .someValue == 42 }
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /vla:
+    post:
+      tags: [VLA]
+      summary: Create a new VLA
+      description: >
+        Create a new **Veracity Level Agreement (VLA).**
+        Responds `201 CREATED` if the VLA was successfully created or `400 BAD REQUEST`
+        if creation failed.
+      operationId: createVLA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VLACreate'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+    get:
+      tags: [VLA]
+      summary: Get all VLAs
+      description: >
+        Returns all available **Veracity Level Agreements** from the database as an
+        array.
+      operationId: getVLAs
+      responses:
+        '200':
+          description: The list of known VLAs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VLAArray'
+    delete:
+      tags: [Dev]
+      summary: Delete all VLAs
+      description: >
+        Delete all **Veracity Level Agreeements.**
+        Should always respond with `204 NO CONTENT`.
+      operationId: deleteVLAs
+      responses:
+        '204':
+          $ref: '#/components/responses/Deleted'
+  /vla/from-templates:
+    post:
+      tags: [VLA]
+      summary: Create a new VLA using template rendering
+      description: >
+        Create a new **Veracity Level Agreement (VLA).**
+        Responds `201 CREATED` if the VLA was successfully created or `400 BAD REQUEST`
+        if creation failed.
+      operationId: createVLAFromTemplates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VLACreateFromTemplates'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /vla/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    get:
+      tags: [VLA]
+      summary: Get VLA by ID
+      description: >
+        Queries a specific **Veracity Level Agreement** by its unique ID.
+        Responds either with `200 OK` and the contents of the requested VLA or with
+        `404 NOT FOUND` if no VLA with the specified ID exists.
+      operationId: getVLA
+      responses:
+        '200':
+          description: Returning requested VLA
+          content:
+            application/json:
+              schema:
+                $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /attestation:
+    post:
+      tags: [AoV]
+      summary: Submit an attestation request
+      description: >
+        Create a new **AoV request** for a given data exchange.
+        Requests are processed asynchronously.
+        If your request has been accepted for processing, the response will be `202
+        ACCEPTED`.
+        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
+        error.
+      operationId: requestAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttestationRequest'
+            examples:
+              JsonSchemaAndPropertyExpressions:
+                summary: >-
+                  Check that data conforms to a JSON schema and that
+                  some property checks pass
+                value:
+                  exchangeID: xchg-0001
+                  contract:
+                    id: contract-0001
+                    dataProvider: /catalog/participants/provider-test-id
+                    dataConsumer: /catalog/participants/consumer-test-did
+                    serviceOffering: /catalog/serviceofferings/serviceoffering-test-did
+                    purpose: []
+                    negotiators:
+                      - did: /catalog/participants/provider-test-id
+                      - did: /catalog/participants/consumer-test-did
+                    status: PENDING
+                    policy:
+                      - uid: /policy/policy-0-uid
+                        permission:
+                          - type: permission
+                            uid: /target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7
+                            action: use
+                    vla:
+                      id: ddf4a56a-228b-461c-9448-d0e16135e315
+                      kind: DataContract
+                      schema:
+                        name: xapi_statement
+                        logicalType: object
+                        properties:
+                          - name: actor
+                            logicalType: object
+                            required: true
+                          - name: verb
+                            logicalType: object
+                            required: true
+                          - name: object
+                            logicalType: object
+                            required: true
+                          - name: result
+                            logicalType: object
+                            required: true
+                          - name: timestamp
+                            logicalType: string
+                            required: true
+                        quality:
+                          - engine: SCHEMA
+                            implementation:
+                              $schema: https://json-schema.org/draft-07/schema
+                              title: Minimal xAPI Statement
+                              description: >-
+                                This is not the full xAPI JSON schema,
+                                just a minimal subset for testing.
+                              type: object
+                              properties:
+                                actor:
+                                  type: object
+                                  properties:
+                                    name:
+                                      type: string
+                                    mbox:
+                                      type: string
+                                      format: email
+                                  required: [name]
+                                verb:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                      format: uri
+                                  required: [id]
+                                object:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                      format: uri
+                                    definition:
+                                      type: object
+                                      properties:
+                                        name:
+                                          type: object
+                                          properties:
+                                            en-US:
+                                              type: string
+                                          required: [en-US]
+                                        description:
+                                          type: object
+                                          properties:
+                                            en-US:
+                                              type: string
+                                          required: [en-US]
+                                        type:
+                                          type: string
+                                          format: uri
+                                      required: [name, type]
+                                  required: [definition, id]
+                                result:
+                                  type: object
+                                  properties:
+                                    success:
+                                      type: boolean
+                                  required: [success]
+                                timestamp:
+                                  type: string
+                                  format: date-time
+                              required: [actor, object, result, timestamp, verb]
+                          - engine: JQ
+                            implementation: '{ success: .result.success }'
+                          - engine: JQ
+                            implementation: >-
+                              { success: .actor.name | contains('Dupont') }
+                  attesterID: attester-0000
+                  data:
+                    actor:
+                      name: Jean Dupont
+                      mbox: mailto:jeandupont@example.com
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+                    object:
+                      id: https://navy.mil/netc/xapi/activities/simulations/b9e16535-4fc9-4c66-ac87-3ad7ce515f5c/events/0221144
+                      definition:
+                        name:
+                          en-US: Event in Simulator
+                        description:
+                          en-US: You're wearing all your PPE
+                        type: http://adlnet.gov/expapi/activities/interaction
+                    result:
+                      success: true
+                    timestamp: '2025-03-16T03:25:00Z'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /attestation/verify:
+    post:
+      tags: [AoV]
+      summary: Submit an AoV verification request
+      description: >
+        Create a new **AoV verification request** for a given AoV.
+        Requests are processed asynchronously.
+        If your request has been accepted for processing, the response will be `202
+        ACCEPTED`.
+        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
+        error.
+      operationId: requestAovVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /proof:
+    post:
+      tags: [Future]
+      summary: Submit proof generation request
+      description: >
+        Create a new **PoV request** for a given data exchange.
+        Requests are processed asynchronously.
+        If your request has been accepted for processing, the response will be `202
+        ACCEPTED`.
+        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
+        error.
+      operationId: requestPov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProofRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /proof/verify:
+    post:
+      tags: [Future]
+      summary: Submit PoV verification request
+      description: >
+        Create a new **PoV verification request** for a given PoV.
+        Requests are processed asynchronously.
+        If your request has been accepted for processing, the response will be `202
+        ACCEPTED`.
+        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
+        error.
+      operationId: requestPovVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /evaluate:
+    post:
+      tags: [Evaluation]
+      summary: Evaluate a requirement against some data
+      description: >
+        Takes some requirement (that could be part of a VLA) and a piece of data in
+        the request body.
+        The response is the result of evaluating the requirement on that data.
+        This endpoint is useful for testing requirements in the process of building
+        VLAs.
+      operationId: evaluate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Evaluated'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /evaluate/from-template:
+    post:
+      tags: [Evaluation]
+      summary: Render a template and evaluate the result against some  data
+      description: >
+        Takes a template ID and some data in the request body.
+        The template with the given ID is rendered internally and the resulting
+        requirement is evaluated on the data passed.
+        This endpoint is useful for testing requirements in the process of building
+        VLAs.
+      operationId: evaluteFromTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationFromTemplateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Evaluated'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /info/requests:
+    get:
+      tags: [Info]
+      summary: Get all DVA attestation/proof requests
+      operationId: getRequests
+      responses:
+        '200':
+          description: Returning all known requests
+          content:
+            application/json:
+              schema:
+                type: object
+  /info/presentations:
+    get:
+      tags: [Info]
+      summary: Get all DVA presentations/verifications
+      operationId: getPresentations
+      responses:
+        '200':
+          description: Returning all known presentations
+          content:
+            application/json:
+              schema:
+                type: object
+  /info/credentials:
+    get:
+      tags: [Info]
+      summary: Get all stored verifiable credentials
+      operationId: getCredentials
+      responses:
+        '200':
+          description: Returning all stored VCs
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  schemas:
+    Id:
+      type: string
+      example: 8e51e3a7-c614-4f5f-9ecf-8e2b032d72e4
+    IdObject:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+      required: [id]
+      example:
+        id: 8d70bc5f-f690-4b66-a7b0-c05c8c815dad
+    TemplateArray:
+      type: array
+      items:
+        $ref: '#/components/schemas/Template'
+    Template:
+      type: object
+      required:
+        - id
+        - name
+        - criterionType
+        - targetAspect
+        - evaluatoinMethod
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        description:
+          type: string
+        criterionType:
+          $ref: '#/components/schemas/CriterionType'
+        targetAspect:
+          $ref: '#/components/schemas/QualityAspect'
+        evaluationMethod:
+          type: object
+          required: [engine, variableSchema, implementationTemplate]
+          additionalProperties: false
+          properties:
+            engine:
+              $ref: '#/components/schemas/QualityEngine'
+            variableSchema:
+              type: object
+            implementationTemplate:
+              type: string
+      example:
+        name: JSON Schema
+        description: >-
+          Data should conform to a JSON schema with the given URL
+        criterionType: VALID_INVALID
+        targetAspect: SYNTAX
+        evaluationMethod:
+          engine: SCHEMA
+          variableSchema:
+            properties:
+              schemaURL:
+                type: string
+          implementationTemplate: '{{ schemaURL }}'
+    TemplateCreate:
+      allOf:
+        - $ref: '#/components/schemas/Template'
+    TemplateUpdate:
+      allOf:
+        - $ref: '#/components/schemas/Template'
+    TemplateModel:
+      type: object
+      example:
+        myUrl: http://example.com
+        numericalVariable: 42
+        arbitraryValues: are okay
+    VLACreate:
+      allOf:
+        - $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json
+      example:
+        description: Data is recent and valid
+        schema:
+          properties:
+            timestamp:
+              type: string
+            result:
+              type: integer
+        quality:
+          - engine: JQ
+            implementation: '{ success: .timestamp >= "20250101T0000Z" }'
+          - engine: JQ
+            implementation: '{ success: .result >= 1 and .result <= 5 }'
+    VLACreateFromTemplates:
+      allOf:
+        - $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json
+      example:
+        description: Data is recent and valid
+        schema:
+          properties:
+            timestamp:
+              type: string
+            result:
+              type: integer
+        qualityTemplates:
+          - id: 718a3c91-886b-49c4-9f70-5198f98d21c0
+            model:
+              date: 20250101T000000Z
+          - id: 28972cb3-a008-465b-a0d2-cd20ef45497a
+            model:
+              minimum: 1
+              maximum: 5
+    VLAArray:
+      type: array
+      items:
+        $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json
+    CriterionType:
+      type: string
+      enum: [VALID_INVALID, IN_RANGE, GREATER_OR_LESS_THAN]
+    QualityAspect:
+      type: string
+      enum: [SYNTAX, TIMELINESS, ACCURACY, COMPLETENESS, CONSISTENCY]
+    QualityEngine:
+      type: string
+      enum: [SCHEMA, GREAT_EXPECTATIONS, JQ]
+    VeracityRequest:
+      type: object
+      required: [exchangeID, contract, data]
+      properties:
+        exchangeID:
+          type: string
+          example: 75c411c0-4016-4f83-a3e8-66b137080d86
+        contract:
+          type: object
+          required: [id, vla]
+          additionalProperties: true
+          properties:
+            id:
+              type: string
+            vla:
+              $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json
+        data:
+          $ref: '#/components/schemas/AnyValue'
+      example:
+        exchangeID: xchg-0001
+        contract:
+          id: contract-0001
+          dataProvider: /catalog/participants/provider-test-id
+          dataConsumer: /catalog/participants/consumer-test-did
+          serviceOffering: /catalog/serviceofferings/serviceoffering-test-did
+          purpose: []
+          negotiators:
+            - did: /catalog/participants/provider-test-id
+            - did: /catalog/participants/consumer-test-did
+          status: PENDING
+          policy:
+            - uid: /policy/policy-0-uid
+              permission:
+                - type: permission
+                  uid: /target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7
+                  action: use
+          vla:
+            id: 2e99b60d-8cf7-4668-a234-96ebfd6a2b63
+            kind: DataContract
+            schema:
+              name: xapi_statement
+              logicalType: object
+              properties:
+                - name: actor
+                  logicalType: object
+                  required: true
+                - name: verb
+                  logicalType: object
+                  required: true
+                - name: object
+                  logicalType: object
+                  required: true
+                - name: result
+                  logicalType: object
+                  required: true
+                - name: timestamp
+                  logicalType: string
+                  required: true
+              quality:
+                - type: custom
+                  engine: greatExpectations
+                  implementation: >-
+                    type: ExpectColumnValuesToBeBetween
+                    kwargs:
+                      column: timestamp
+                      min_value: '2025-01-01T00:00:00Z'
+                      max_value: '2026-01-01T00:00:00Z'
+        data:
+          actor:
+            name: Jean Dupont
+            mbox: mailto:jeandupont@example.com
+          verb:
+            id: http://adlnet.gov/expapi/verbs/interacted
+          object:
+            id: https://navy.mil/netc/xapi/activities/simulations/b9e16535-4fc9-4c66-ac87-3ad7ce515f5c/events/0221144
+            definition:
+              name:
+                en-US: Event in Simulator
+              description:
+                en-US: You're wearing all your PPE
+              type: http://adlnet.gov/expapi/activities/interaction
+          result:
+            success: true
+          timestamp: '2025-03-16T03:25:00Z'
+        attesterID: attester-0000
+    AttestationRequest:
+      allOf:
+        - $ref: '#/components/schemas/VeracityRequest'
+      required: [attesterID]
+      properties:
+        attesterID:
+          type: string
+    ProofRequest:
+      allOf:
+        - $ref: '#/components/schemas/VeracityRequest'
+      required: [proverID]
+      properties:
+        proverID:
+          type: string
+    VerificationRequest:
+      type: object
+      required:
+        - exchangeID
+        - contractID
+        - attesterAgentURL
+        - attesterAgentLabel
+      additionalProperties: false
+      properties:
+        exchangeID:
+          type: string
+        contractID:
+          type: string
+        attesterAgentURL:
+          type: string
+          format: url
+        attesterAgentLabel:
+          type: string
+      example:
+        exchangeID: xchg-0001
+        contractID: contract-0001
+        attesterAgentURL: http://aca-py-provider:8030
+        attesterAgentLabel: provider
+    EvaluationRequest:
+      type: object
+      required: [requirement, data]
+      additionalProperties: false
+      properties:
+        requirement:
+          $ref: https://raw.githubusercontent.com/bitol-io/open-data-contract-standard/refs/heads/main/schema/odcs-json-schema-latest.json#/$defs/DataQualityCustom
+        data:
+          type: object
+      example:
+        requirement:
+          engine: JQ
+          implementation: >-
+            if .actor == 'Expected Actor'
+            then { success: true, details: 'Actor name is correct' }
+            else { success: false, details: 'Unexpected actor name' }
+            end
+        data:
+          statement_id: 123
+          actor: Unexpected Uriel
+          action: read
+          object: course_materials/lecturenotes/1
+    EvaluationFromTemplateRequest:
+      type: object
+      required: [templateID, templateModel, data]
+      additionalProperties: false
+      properties:
+        templateID:
+          type: string
+        templateModel:
+          type: object
+        data:
+          type: object
+      example:
+        templateID: 74d696f2-b217-4d2f-a0c1-5ff65cd2258d
+        templateModel:
+          target_field: .actor
+          required_value: Expected Actor
+        data:
+          statement_id: 123
+          actor: Unexpected Uriel
+          action: read
+          object: course_materials/lecturenotes/1
+    EvaluationResult:
+      type: object
+      required: [timestamp, success]
+      additionalProperties: false
+      properties:
+        engine:
+          type: QualityEngine
+        timestamp:
+          type: string
+          format: datetime
+        success:
+          type: bool
+        details:
+          type: string
+        error:
+          type: string
+      example:
+        engine: JQ
+        timestamp: '2026-01-31T17:48:10.904264Z'
+        success: true
+        details: Actor name is correct
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    AnyValue: {}
+  parameters:
+    idParam:
+      name: id
+      description: A resource’s ID
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+  responses:
+    Created:
+      description: >-
+        The resource has been created successfully.
+        You may be able to query the created resource later by the ID
+        returned or refer to the resource using its ID in
+        other requests.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IdObject'
+    Deleted:
+      description: >-
+        The resource has been deleted successfully.
+        The associated ID (if any) is no longer valid.
+    Accepted:
+      description: >-
+        The request has been accepted for processing.
+        You may be able to query the status of the processing by the
+        ID returned.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IdObject'
+    NotFound:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            Template:
+              summary: Template not found
+              value:
+                type: NOT_FOUND
+                message: Could not find VLA template with id 'foo-123'
+            AoV:
+              summary: Attestation (AoV) not found
+              value:
+                type: NOT_FOUND
+                message: Could not find AoV with id 'bar-123'
+            VLA:
+              summary: VLA not found
+              value:
+                type: NOT_FOUND
+                message: Could not find VLA with id 'bar-123'
+    InvalidData:
+      description: >-
+        The request body was invalid.
+        Please do not retry the request without correcting the payload.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            Template:
+              summary: Template data invalid
+              value:
+                type: INVALID_DATA
+                message: Invalid template data supplied
+            TemplateRender:
+              summary: Template model to render invalid
+              value:
+                type: INVALID_DATA
+                message: Invalid template render request
+            AoV:
+              summary: Attestation (AoV) generation payload invalid
+              value:
+                type: INVALID_DATA
+                message: Invalid AoV data supplied
+    UpdatedTemplate:
+      description: The template has been updated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Template'
+    Evaluated:
+      description: The requirement has been evaluated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EvaluationResult'

@@ -1,0 +1,81 @@
+"output_trace": {
+		"timestamp": "2024-12-11T14:36:39+00:00",
+		"actor": {
+			"account": {
+				"name": "7&k=",
+				"homePage": "http://localhost:3000"
+			},
+			"objectType": "Agent"
+		},
+		"object": {
+			"id": "http://localhost:3000/test.html",
+			"definition": {
+				"name": {
+					"en-US": "Test Matomo - Page test"
+				},
+				"type": "https://w3id.org/xapi/acrossx/activities/webpage"
+			}
+		},
+		"result": {
+			"duration": "PT4S",
+		},
+		"context": {
+			"language": "fr-fr",
+			"extensions": {
+				"http://id.tincanapi.com/extension/browser-info": {
+					"name": "CH"
+				},
+				"http://id.tincanapi.com/extension/geojson": {
+					"type": "Feature",
+					"geometry": {
+						"type": "Point"
+					},
+					"properties": {
+						"countryCode": "fr"
+					}
+				},
+				"http://id.tincanapi.com/extension/ip-address": "172.19.0.1",
+				"http://id.tincanapi.com/extension/irl": "http://localhost:3000/test.html"
+			},
+			"contextActivities": {
+				"category": [
+					{
+						"id": "https://w3id.org/xapi/lms",
+						"definition": {
+							"type": "http://adlnet.gov/expapi/activities/profile"
+						}
+					}
+				]
+			}
+		},
+		"verb": {
+			"id": "https://w3id.org/xapi/netc/verbs/accessed",
+			"display": {
+				"en-US": "Accessed a page"
+			}
+		},
+		"version": "1.0.0"
+	},
+	"recommendations": [
+		{
+			"rule": "presence",
+			"path": "$.object.definition.extensions['https://w3id.org/xapi/acrossx/extensions/type']",
+			"expected": "included",
+			"actual": "missing"
+		},
+		{
+			"rule": "any",
+			"path": "$.object.definition.extensions['https://w3id.org/xapi/acrossx/extensions/type']",
+			"expected": [
+				"course",
+				"course_list",
+				"user_space"
+			],
+			"actual": []
+		}
+	],
+	"meta": {
+		"input_format": "matomo",
+		"output_format": "xapi",
+		"profile": "lms.accessed-page"
+	}

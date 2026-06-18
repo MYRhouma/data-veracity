@@ -1,0 +1,261 @@
+---
+services:
+  dva-api-provider:
+    extends:
+      file: common-services.yml
+      service: dva-api
+    environment:
+      DVA_PROCESSING_URL: http://dva-processing-provider:5000
+      DVA_RABBITMQ_HOST: rabbit-provider
+      DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
+      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+    ports: [9091:9090]
+    depends_on:
+      dva-processing-provider: {condition: service_healthy}
+      rabbit-provider: {condition: service_healthy}
+      postgres-provider: {condition: service_healthy}
+      aca-py-provider: {condition: service_healthy}
+      dva-aca-py-controller-provider: {condition: service_healthy}
+  dva-api-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-api
+    environment:
+      DVA_PROCESSING_URL: http://dva-processing-consumer:5000
+      DVA_RABBITMQ_HOST: rabbit-consumer
+      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
+      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+    ports: [9092:9090]
+    depends_on:
+      dva-processing-consumer: {condition: service_healthy}
+      rabbit-consumer: {condition: service_healthy}
+      postgres-consumer: {condition: service_healthy}
+      aca-py-consumer: {condition: service_healthy}
+      dva-aca-py-controller-consumer: {condition: service_healthy}
+  dva-api-vla-manager:
+    extends:
+      file: common-services.yml
+      service: dva-api
+    environment:
+      DVA_PROCESSING_URL: http://dva-processing-vla-manager:5000
+      DVA_RABBITMQ_HOST: rabbit-vla-manager
+      DVA_POSTGRES_URL: postgresql://postgres-vla-manager:5432/dva
+    ports: [9099:9090]
+    depends_on:
+      dva-processing-vla-manager: {condition: service_healthy}
+      rabbit-vla-manager: {condition: service_healthy}
+      postgres-vla-manager: {condition: service_healthy}
+  dva-processing-provider:
+    extends:
+      file: common-services.yml
+      service: dva-processing
+    environment:
+      DVA_LOG_LEVEL: debug
+      DVA_RABBITMQ_HOST: rabbit-provider
+      DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
+      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+    healthcheck:
+      test: nc -z localhost 5000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      rabbit-provider: {condition: service_healthy}
+      postgres-provider: {condition: service_healthy}
+  dva-processing-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-processing
+    environment:
+      DVA_LOG_LEVEL: debug
+      DVA_RABBITMQ_HOST: rabbit-consumer
+      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
+      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+    healthcheck:
+      test: nc -z localhost 5000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      rabbit-consumer: {condition: service_healthy}
+      postgres-consumer: {condition: service_healthy}
+  dva-processing-vla-manager:
+    extends:
+      file: common-services.yml
+      service: dva-processing
+    command: [--no-rmq]
+    environment:
+      DVA_LOG_LEVEL: debug
+    healthcheck:
+      test: nc -z localhost 5000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  rabbit-provider:
+    extends:
+      file: common-services.yml
+      service: rabbit
+  rabbit-consumer:
+    extends:
+      file: common-services.yml
+      service: rabbit
+  rabbit-vla-manager:
+    extends:
+      file: common-services.yml
+      service: rabbit
+  postgres-provider:
+    extends:
+      file: common-services.yml
+      service: postgres
+    ports: [5401:5432]
+  postgres-consumer:
+    extends:
+      file: common-services.yml
+      service: postgres
+    ports: [5402:5432]
+  postgres-vla-manager:
+    extends:
+      file: common-services.yml
+      service: postgres
+    ports: [5409:5432]
+  karate:
+    profiles: [karate]
+    extends:
+      file: common-services.yml
+      service: karate
+    depends_on:
+      dva-api-provider: {condition: service_healthy}
+      dva-api-consumer: {condition: service_healthy}
+      dva-processing-provider: {condition: service_started}
+      dva-processing-consumer: {condition: service_started}
+  aca-py-provider:
+    extends:
+      file: common-services.yml
+      service: aca-py
+    command: >
+      start
+        --inbound-transport http 0.0.0.0 8020
+        --outbound-transport http
+        --admin 0.0.0.0 8030
+        --admin-insecure-mode
+        --webhook-url http://dva-aca-py-controller-provider:8050/webhooks
+        --label provider
+        --wallet-type askar
+        --wallet-name providerwallet
+        --wallet-key providerkey123
+        --auto-provision
+        --auto-accept-invites
+        --auto-accept-requests
+        --auto-respond-credential-offer
+        --auto-respond-credential-request
+        --auto-respond-presentation-request
+        --auto-verify-presentation
+        --auto-store-credential
+        --preserve-exchange-records
+        --genesis-url http://test.bcovrin.vonx.io/genesis
+        --seed 0000000000000000000ProviderSeed1
+        --ledger-pool-name bcovrin-test
+        --endpoint http://aca-py-provider:8020
+    healthcheck:
+      test: curl -Ss localhost:8030/status
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports: [8021:8020, 8031:8030]
+  aca-py-consumer:
+    extends:
+      file: common-services.yml
+      service: aca-py
+    command: >
+      start
+        --inbound-transport http 0.0.0.0 8020
+        --outbound-transport http
+        --admin 0.0.0.0 8030
+        --admin-insecure-mode
+        --webhook-url http://dva-aca-py-controller-consumer:8050/webhooks
+        --label consumer
+        --wallet-type askar
+        --wallet-name consumerwallet
+        --wallet-key consumerkey123
+        --auto-provision
+        --auto-accept-invites
+        --auto-accept-requests
+        --auto-respond-credential-offer
+        --auto-respond-credential-request
+        --auto-respond-presentation-request
+        --auto-verify-presentation
+        --auto-store-credential
+        --preserve-exchange-records
+        --genesis-url http://test.bcovrin.vonx.io/genesis
+        --seed 0000000000000000000ConsumerSeed1
+        --ledger-pool-name bcovrin-test
+        --endpoint http://aca-py-consumer:8020
+    healthcheck:
+      test: curl -Ss localhost:8030/status
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports: [8022:8020, 8032:8030]
+  dva-aca-py-controller-provider:
+    extends:
+      file: common-services.yml
+      service: dva-aca-py-controller
+    environment:
+      PYTHONUNBUFFERED: 1
+      ADMIN_URL: http://aca-py-provider:8030
+      ADMIN_LABEL: provider
+      PEER_CONTROLLER_URL: http://dva-aca-py-controller-consumer
+      PEER_AGENT_URL: http://aca-py-consumer
+      PEER_LABEL: consumer
+      PEER_CONTROLLER_PORT_IN: 8030
+      PEER_CONTROLLER_PORT_OUT: 8050
+      DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
+    ports: [8051:8050]
+    depends_on:
+      aca-py-provider: {condition: service_healthy}
+      postgres-provider: {condition: service_healthy}
+  dva-aca-py-controller-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-aca-py-controller
+    environment:
+      PYTHONUNBUFFERED: 1
+      ADMIN_URL: http://aca-py-consumer:8030
+      ADMIN_LABEL: consumer
+      PEER_CONTROLLER_URL: http://dva-aca-py-controller-provider
+      PEER_AGENT_URL: http://aca-py-provider
+      PEER_LABEL: provider
+      PEER_CONTROLLER_PORT_IN: 8030
+      PEER_CONTROLLER_PORT_OUT: 8050
+      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
+    ports: [8052:8050]
+    depends_on:
+      aca-py-consumer: {condition: service_healthy}
+      postgres-consumer: {condition: service_healthy}
+  dva-dashboard-provider:
+    extends:
+      file: common-services.yml
+      service: dva-dashboard
+    environment:
+      DVA_API_URL: http://dva-api-provider:9090
+    ports: [3011:80]
+    depends_on:
+      dva-api-provider: {condition: service_healthy}
+  dva-dashboard-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-dashboard
+    environment:
+      DVA_API_URL: http://dva-api-consumer:9090
+    ports: [3012:80]
+    depends_on:
+      dva-api-consumer: {condition: service_healthy}
+  vla-manager:
+    extends:
+      file: common-services.yml
+      service: vla-manager
+    environment:
+      VLA_MANAGER_BACKEND_URL: http://dva-api-vla-manager:9090
+    ports: [3020:80]
+    depends_on:
+      dva-api-vla-manager: {condition: service_healthy}

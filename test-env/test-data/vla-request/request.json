@@ -1,0 +1,23 @@
+{
+  "description": "Data is recent and valid",
+  "schema": {
+    "properties": {
+      "timestamp": {
+        "type": "string"
+      },
+      "result": {
+        "type": "integer"
+      }
+    }
+  },
+  "quality": [
+    {
+      "engine": "JQ",
+      "implementation": "{ success: .timestamp >= '20250101T0000Z' }"
+    },
+    {
+      "engine": "JQ",
+      "implementation": "{ success: .result >= 1 and .result <= 5 }"
+    }
+  ]
+}

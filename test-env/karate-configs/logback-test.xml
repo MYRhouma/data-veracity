@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <appender class="ch.qos.logback.core.ConsoleAppender" name="STDOUT">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <appender class="ch.qos.logback.core.FileAppender" name="FILE">
+    <file>target/karate-logs/karate.log</file>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger level="DEBUG" name="com.intuit.karate"></logger>
+  <root level="info">
+    <appender-ref ref="STDOUT"></appender-ref>
+    <appender-ref ref="FILE"></appender-ref>
+  </root>
+</configuration>

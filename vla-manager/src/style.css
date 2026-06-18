@@ -1,0 +1,35 @@
+body {
+  font-family: sans-serif;
+  display: flex;
+  margin: 0;
+  min-width: 100vw;
+  min-height: 100vh;
+}
+
+#app {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  border: none;
+  background: #118c82;
+  border-radius: 5px;
+  cursor: pointer;
+  color: white;
+  padding: .75rem;
+  height: min-content;
+  width: fit-content;
+  transition: all .2s ease-in-out;
+}
+
+button:hover {
+  transform: translate(-.2em,-.2em);
+  box-shadow: .8rem .8rem .8rem rgba(0, 0, 0, .5);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .25;
+}

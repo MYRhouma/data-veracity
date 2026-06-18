@@ -1,0 +1,44 @@
+# <type>(<scope>)[!]: <description> (72 characters maximum)
+# |<--- preferably using up to 50 characters --->|<------------------->|
+
+# Optional <body>
+# |<------------------- max 72 characters per line ------------------->|
+
+# Optional <footer>
+
+# ----- END COMMIT MESSAGE -----
+#
+# <type> indicates what kind of commit this is.
+# It can be one of:
+#   - feat        for new features introduced (i.e. MINOR in SemVer standard)
+#   - fix         for bug-fixes (i.e. PATCH in SemVer standard)
+#   - refactor    for rewriting or restructuring of code that does not affect API behavior
+#   - build       for changes in build system or environment
+#   - ci          for configuring continuous integration systems
+#   - test        for adding new tests or correcting defective tests
+#   - docs        for changes in documentation only
+#   - chore       for miscellaneous tasks
+#   - revert      for reverting commits made previously
+#   - merge       for branch merges
+#
+# <scope> describes a section of the codebase where this change is applied and is optional.
+# Note that allowed content of this section depends on the specific project.
+# Issue identifiers are not valid scopes.
+#
+# Inserting "!" before the colon indicates that this commit introduces a breaking change.
+# It is equivalent to a bump in MAJOR in SemVer standard.
+# With this, the breaking change indicator in <footer> becomes optional.
+#
+# <description> contains a concise description of the change.
+# The content should be in imperative mood, as if "This commit will..." is prepended.
+# Do not capitalize the beginning of the sentence, and full stop (.) is omitted.
+#
+# <body> provides additional contextual information about the code changes and is optional.
+# Multiple paragraphs separated by an empty line are allowed here.
+# Sentences should be in imperative mood with proper capitalization and full stops (.).
+#
+# <footer> is a list of key-value pairs that store "metadata" of a commit.
+# There are three types of a footer:
+#   - Breaking change indicator     verbatim "BREAKING CHANGE:", followed by a <description>
+#   - Automatic issue management    such as "Close #123", "Reference #123", "See #123", etc.
+#   - Email-like metadata           such as "Signed-off-by:", "Co-authored-by", etc.

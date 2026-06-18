@@ -1,0 +1,10 @@
+{
+  "subject": "provider",
+  "issuer_id": "dva-provider",
+  "payload": {
+    "comment": "This is a test payload",
+    "score": 85,
+    "details": { "passed": true, "criteria": ["crit1", "crit2"] }
+  },
+  "target": "self"
+}

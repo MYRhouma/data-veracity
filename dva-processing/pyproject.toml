@@ -1,0 +1,43 @@
+[project]
+name = "dva-processing"
+version = "0.1.0"
+description = "Data Veracity Assurance Python Modules"
+readme = "README.md"
+authors = [{ name = "FTSRG", email = "bpeter@edu.bme.hu" }]
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+	"fastapi>=0.115.12",
+	"great-expectations>=1.3.3",
+	"jsonpath-ng>=1.7.0",
+	"jsonschema>=4.23.0",
+	"jq>=1.10.0",
+	"numpy==1.26.4",
+	"pandas>=2.1.1",
+	"pika>=1.3.2",
+	"plac>=1.4.5",
+	"psycopg[binary]>=3.2.9",
+	"pydantic>=2.10.6",
+	"requests>=2.32.3",
+	"structlog>=25.1.0",
+	"uvicorn>=0.34.3",
+	"validators>=0.35.0",
+	"pydantic-yaml>=1.6.0",
+]
+classifiers = ["Private :: Do Not Upload"]
+
+[project.scripts]
+dva-processing = "dva_processing.main:cli"
+
+[project.optional-dependencies]
+logging = ["rich>=13.9.4"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dva_processing"]
+
+[dependency-groups]
+dev = ["pytest>=8.3.5"]

@@ -1,0 +1,70 @@
+# How to Contribute
+
+
+## How to Make a Contribution?
+
+Open an issue (if one does not exist already) for your problem.
+Then, make your changes on a separate feature branch with the name `<issue_number>-<short_identifier>` and open a pull request.
+
+For example, let’s say you think the build process of the project should be thoroughly documented.
+Then, you would do the following:
+1. Open a new issue with the title ‘Document build process in detail’ and explain why this is necessary.  Let’s say the new issue got the identifier `#83`.
+2. Create a new branch called `83-build_docs` and write the documentation.
+3. Create a pull request, merging `83-build_docs` into `main`.
+
+
+## Conventions Used in this Project
+
+### Git Conventions
+
+**Please use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).**
+
+You can configure Git locally to use the template in this directory like this:
+```console
+git config commit.template docs/commit-message-template.txt
+```
+
+We use the following commit types:
+* `feat` – for modifications in functional features, often breaking changes
+* `fix` – for commits that fix bugs or minor issues
+* `refactor` – for changes that do not affect externally observed behaviour
+* `test` – commits related to testing
+* `docs` – changes to documentation
+* `build` – changes related to the (local) build environment/process, dependencies, etc
+* `ci` – changes to the CI pipeline
+* `chore` – miscellaneous, like adding a line to .gitignore
+* `revert` – for revert commits
+* `merge` – for merge commits
+
+For now, we do not use scopes.
+
+Please write concise but useful commit bodies where applicable.
+
+Examples:
+
+```
+feat: allow orchestrators to delete VLA templates
+```
+
+```
+build: require Java 21
+
+We have decided to use the new features introduced in Java 21 such as [foo] and [bar].
+```
+
+```
+chore: add target directory to gitignore
+```
+
+### Generic coding conventions
+
+Please include [SPDX License IDs](https://spdx.dev/learn/handling-license-info/) in code files.
+This project is using the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license.
+
+### Java Coding Conventions
+
+Please follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)
+
+### Other
+
+* Use _British English_ word variations (e.g., _colour_ instead of _color_)

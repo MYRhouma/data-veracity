@@ -1,0 +1,67 @@
+# Dataspace Connector — excluded, separate project
+dataspace-connector-1.10.2/
+
+# Task files
+#Task 1.py
+
+# Documentation/plan files — private, not for repo
+MASTER_GUIDE.md
+ISSUES_REPORT.md
+TOKENISATION_IMPLEMENTATION_PLAN.md
+CONSOLIDATED_IMPLEMENTATION_PLAN.md
+DATASPACE_CONNECTOR_GUIDE.md
+FINDINGS_AND_PLAN.md
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg-link
+.eggs/
+build/
+dist/
+*.egg
+.venv/
+venv/
+.env
+
+# Gradle / Kotlin / Java
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+log.json
+log_human_readable.json
+
+# Test artifacts
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+.coverage.*
+api/build/reports/
+api/build/test-results/
+
+# Docker volumes
+fabric_networks/

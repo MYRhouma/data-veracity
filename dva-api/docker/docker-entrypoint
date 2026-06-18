@@ -1,0 +1,6 @@
+#!/bin/sh -euC
+
+: "${DVA_PREFIX:="/app"}"
+: "${DVA_API_JAR_NAME:="api-all.jar"}"
+
+exec java -jar "$DVA_PREFIX/$DVA_API_JAR_NAME"

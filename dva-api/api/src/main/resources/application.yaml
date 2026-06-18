@@ -1,0 +1,29 @@
+ktor:
+  deployment:
+    port: 9090
+  application:
+    modules:
+      - hu.bme.mit.ftsrg.dva.api.ApplicationKt.module
+
+auth:
+  apiKey: "$DVA_API_KEY:changeme"
+
+swagger:
+  openapiFile: "$DVA_OPENAPI_FILE:../docs/spec/openapi.yaml"
+
+postgres:
+  url: "$DVA_POSTGRES_URL:postgresql://localhost:5432/dva"
+  user: "$DVA_POSTGRES_USER:postgres"
+  password: "$DVA_POSTGRES_PASSWORD:postgres"
+
+rabbitmq:
+  host: "$DVA_RABBITMQ_HOST:localhost"
+
+processing:
+  url: "$DVA_PROCESSING_URL:http://localhost:5000"
+
+acaPy:
+  agent:
+    url: "$DVA_ACA_PY_AGENT_URL:http://localhost:8030"
+  controller:
+    url: "$DVA_ACA_PY_CONTROLLER_URL:http://localhost:8050"

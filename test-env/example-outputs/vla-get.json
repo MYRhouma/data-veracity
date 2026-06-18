@@ -1,0 +1,52 @@
+[
+  {
+    "apiVersion": "v3.0.2",
+    "kind": "DataContract",
+    "version": "0.1.0",
+    "status": "active",
+    "description": "Data is recent and valid",
+    "schema": {
+      "properties": {
+        "timestamp": {
+          "type": "string"
+        },
+        "result": {
+          "type": "integer"
+        }
+      }
+    },
+    "quality": [
+      {
+        "engine": "JQ",
+        "implementation": "{ success: .timestamp >= '20250101T0000Z' }"
+      },
+      {
+        "engine": "JQ",
+        "implementation": "{ success: .result >= 1 and .result <= 5 }"
+      }
+    ]
+  },
+  {
+    "apiVersion": "v3.0.2",
+    "kind": "DataContract",
+    "version": "0.1.0",
+    "status": "active",
+    "description": "Data has given timestmap",
+    "schema": {
+      "properties": {
+        "timestamp": {
+          "type": "string"
+        },
+        "result": {
+          "type": "integer"
+        }
+      }
+    },
+    "quality": [
+      {
+        "engine": "JQ",
+        "implementation": "{ success: .date == '20250101' }"
+      }
+    ]
+  }
+]

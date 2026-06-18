@@ -1,0 +1,11 @@
+{
+  "aovID": "7e69cee5-86c4-4675-8e8a-22d5839be2d9",
+  "contractID": "51a315c8-0930-4ac7-a6ff-4ce89f72efd5",
+  "vc": [
+    "id",
+    "type",
+    "validFrom",
+    "subject",
+    "issuer"
+  ]
+}

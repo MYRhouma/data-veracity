@@ -1,0 +1,78 @@
+
+{
+
+  "authority": {
+
+    "objectType": "Agent",
+
+    "name": "Mockup LOMCT write",
+
+    "mbox": "mailto:contact@inokufu.com"
+
+  },
+
+  "timestamp": "2024-09-03T14:17:43.686Z",
+
+  "context": {
+
+    "extensions": {
+
+      "http://schema.prometheus-x.org/extension/username": "Baden-Powell",
+
+      "http://schema.prometheus-x.org/extension/biography": "Scouting expert",
+
+      "http://schema.prometheus-x.org/extension/bloom": "discover",
+
+      "http://schema.prometheus-x.org/extension/provider": "wikipedia"
+
+    },
+
+    "language": "en"
+
+  },
+
+  "actor": {
+
+    "name": "Baden-Powell",
+
+    "mbox": "mailto:lauriane.marxer+lomct2@inokufu.com",
+
+    "objectType": "Agent"
+
+  },
+
+  "version": "1.0.0",
+
+  "id": "8f5e30f6-312e-4ec6-bc60-a37bcb1811ed",
+
+  "verb": {
+
+    "id": "https://w3id.org/xapi/dod-isd/verbs/proposed",
+
+    "display": {
+
+      "en-US": "proposed"
+
+    }
+
+  },
+
+  "object": {
+
+    "id": "https://en.wikipedia.org/wiki/Robert_Baden-Powell,_1st_Baron_Baden-Powell",
+
+    "definition": {
+
+      "name": {
+
+        "en": "Robert Baden-Powell"
+
+      }
+
+    },
+
+    "objectType": "Activity"
+
+  }
+
+}

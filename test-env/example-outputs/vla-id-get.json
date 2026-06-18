@@ -1,0 +1,23 @@
+{
+  "apiVersion": "v3.0.2",
+  "kind": "DataContract",
+  "version": "0.1.0",
+  "status": "active",
+  "description": "Data is recent and valid",
+  "schema": {
+    "properties": {
+      "timestamp": {
+        "type": "string"
+      },
+      "result": {
+        "type": "integer"
+      }
+    }
+  },
+  "quality": [
+    {
+      "engine": "JQ",
+      "implementation": "{ success: .date == '20250101' }"
+    }
+  ]
+}

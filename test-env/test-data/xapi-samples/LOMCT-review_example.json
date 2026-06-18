@@ -1,0 +1,63 @@
+{
+  "stored": "2024-12-04T08:25:06.571Z",
+  "priority": "MEDIUM",
+  "active": true,
+  "client": "XXX",
+  "lrs_id": "XXX",
+  "activities": [
+    "https://www.youtube.com/watch?v=RFXGpG7agA0"
+  ],
+  "agents": [
+    "mailto:lauriane.marxer+lomct@inokufu.com"
+  ],
+  "statement": {
+    "authority": {
+      "objectType": "Agent",
+      "name": "Mockup LOMCT all",
+      "mbox": "mailto:contact@inokufu.com"
+    },
+    "stored": "2024-12-04T08:25:06.571Z",
+    "context": {
+      "extensions": {
+        "http://schema.prometheus-x.org/extension/username": "Martin Dupont",
+        "http://schema.prometheus-x.org/extension/biography": "Teacher "
+      },
+      "language": "en"
+    },
+    "actor": {
+      "objectType": "Agent",
+      "name": "Martin Dupont",
+      "mbox": "mailto:lauriane.marxer+lomct@inokufu.com"
+    },
+    "timestamp": "2024-12-04T08:25:06.571Z",
+    "version": "1.0.0",
+    "id": "XXX",
+    "result": {
+      "score": {
+        "raw": 4.5                  // Representing a 4.5/5 score
+      },
+      "response": "This Moodle plugin looks very interesting."
+    },
+    "verb": {
+      "id": "http://id.tincanapi.com/verb/reviewed",
+      "display": {
+        "en-US": "reviewed"
+      }
+    },
+    "object": {
+      "id": "https://www.youtube.com/watch?v=RFXGpG7agA0",
+      "objectType": "Activity"
+    }
+  },
+  "verbs": [
+    "http://id.tincanapi.com/verb/reviewed"
+  ],
+  "timestamp": "2024-12-04T08:25:06.571Z",
+  "relatedActivities": [
+    "https://www.youtube.com/watch?v=RFXGpG7agA0"
+  ],
+  "relatedAgents": [
+    "mailto:lauriane.marxer+lomct@inokufu.com",
+    "mailto:contact@inokufu.com"
+  ],
+}

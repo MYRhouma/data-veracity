@@ -1,0 +1,53 @@
+{
+  "statement": {
+    "actor": {
+      "account": {
+        "name": "3f324ffd4112ed63",
+        "homePage": "https://www.inokufu.com/"
+      },
+      "objectType": "Agent"
+    },
+    "verb": {
+      "id": "https://w3id.org/xapi/netc/verbs/accessed"
+    },
+    "object": {
+      "objectType": "Activity",
+      "id": "https://www.inokufu.com/",
+      "definition": {
+        "type": "https://w3id.org/xapi/acrossx/activities/webpage",
+        "name": {
+          "en": "Inokufu | Better data for better learning"
+        },
+        "extensions": {
+          "https://w3id&46;org/xapi/acrossx/extensions/type": "website"
+        }
+      }
+    },
+    "context": {
+      "contextActivities": {
+        "category": [
+          {
+            "id": "https://w3id.org/xapi/lms",
+            "definition": {
+              "type": "http://adlnet.gov/expapi/activities/profile"
+            },
+            "objectType": "Activity"
+          }
+        ]
+      },
+      "extensions": {
+        "http://id&46;tincanapi&46;com/extension/duration": "0s",
+        "http://id&46;tincanapi&46;com/extension/browser-info": "Firefox 129.0"
+      }
+    },
+    "version": "1.0.0",
+    "timestamp": "2024-09-04T17:01:06.887Z",
+    "id": "c68c9086-fdfe-405e-aeac-fc5fa6e6bcc9",
+    "stored": "2024-09-06T14:41:14.979Z",
+    "authority": {
+      "objectType": "Agent",
+      "name": "Mockup WALRUC write",
+      "mbox": "mailto:contact@inokufu.com"
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "stored": "2024-03-11T14:17:43.686Z",
+  "priority": "MEDIUM",
+  "active": true,
+  "completedForwardingQueue": [],
+  "failedForwardingLog": [],
+  "client": "626a34fe1deb08f53ac12609",
+  "lrs_id": "626a34fe1deb08d43dc12608",
+  "completedQueues": [
+    "STATEMENT_QUERYBUILDERCACHE_QUEUE",
+    "STATEMENT_PERSON_QUEUE",
+    "STATEMENT_FORWARDING_QUEUE"
+  ],
+  "activities": [
+    "https://becomino.com/category/competences-bureautiques"
+  ],
+  "hash": "2b898680c9870ee54d8d260b75eb45d38fbb6c24",
+  "agents": [
+    "https://becomino.com/users|1710166580617x845375926584167200"
+  ],
+  "statement": {
+    "authority": {
+      "objectType": "Agent",
+      "name": "Becomino",
+      "mbox": "mailto:contact@becomino.com"
+    },
+    "stored": "2024-03-11T14:17:43.686Z",
+    "context": {
+      "contextActivities": {
+        "parent": [
+          {
+            "id": "https://becomino.com/home",
+            "objectType": "Activity"
+          }
+        ],
+        "category": [
+          {
+            "id": "https://becomino.com/category/404",
+            "objectType": "Activity"
+          }
+        ],
+        "grouping": [
+          {
+            "id": "https://becomino.com/board/404",
+            "objectType": "Activity"
+          }
+        ]
+      },
+      "language": "fr"
+    },
+    "actor": {
+      "account": {
+        "homePage": "https://becomino.com/users",
+        "name": "1710166580617x845375926584167200"
+      },
+      "objectType": "Agent"
+    },
+    "timestamp": "2024-03-11T14:17:32.814Z",
+    "version": "1.0.0",
+    "id": "8f5e30f6-312e-4ec6-bc60-a37bcb1811ec",
+    "verb": {
+      "id": "https://w3id.org/xapi/netc/verbs/accessed",
+      "display": {
+        "en-US": "accessed"
+      }
+    },
+    "object": {
+      "id": "https://becomino.com/category/competences-bureautiques",
+      "definition": {
+        "name": {
+          "fr": "Compétences bureautiques"
+        },
+        "description": {
+          "fr": ""
+        },
+        "type": "http://adlnet.gov/expapi/activities/link"
+      },
+      "objectType": "Activity"
+    }
+  },
+  "hasGeneratedId": true,
+  "deadForwardingQueue": [],
+  "voided": false,
+  "verbs": [
+    "https://w3id.org/xapi/netc/verbs/accessed"
+  ],
+  "personaIdentifier": "65ef1288fff35065a8f02d8c",
+  "processingQueues": [],
+  "person": {
+    "_id": "65ef128899ffae0133166652",
+    "display": "1710166580617x845375926584167200 - https://becomino.com/users (xAPI Account)"
+  },
+  "timestamp": "2024-03-11T14:17:32.814Z",
+  "relatedActivities": [
+    "https://becomino.com/category/competences-bureautiques",
+    "https://becomino.com/home",
+    "https://becomino.com/board/404",
+    "https://becomino.com/category/404"
+  ],
+  "relatedAgents": [
+    "https://becomino.com/users|1710166580617x845375926584167200",
+    "mailto:contact@becomino.com"
+  ],
+  "organisation": "626a340cccbcc9000aff1421",
+  "_id": "65ef1287c56582001cca4966",
+  "registrations": [],
+  "pendingForwardingQueue": []
+}

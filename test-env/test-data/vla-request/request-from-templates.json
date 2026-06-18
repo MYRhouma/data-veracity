@@ -1,0 +1,14 @@
+{
+  "description": "Data is recent and valid",
+  "schema": {
+    "properties": {
+      "timestamp": {
+        "type": "string"
+      },
+      "result": {
+        "type": "integer"
+      }
+    }
+  },
+  "qualityTemplates": []
+}

@@ -1,0 +1,60 @@
+
+{
+  "stored": "2024-12-04T08:25:06.571Z",
+  "priority": "MEDIUM",
+  "active": true,
+  "client": "XXX",
+  "lrs_id": "XXX",
+  "activities": [
+    "https://www.youtube.com/watch?v=hLE-5ElGlPM"
+  ],
+  "agents": [
+    "mailto:lauriane.marxer+lomct@inokufu.com"
+  ],
+  "statement": {
+    "authority": {
+      "objectType": "Agent",
+      "name": "Mockup LOMCT all",
+      "mbox": "mailto:contact@inokufu.com"
+    },
+    "stored": "2024-12-04T08:25:06.571Z",
+    "context": {
+      "extensions": {
+        "http://schema.prometheus-x.org/extension/username": "Martin Dupont",
+        "http://schema.prometheus-x.org/extension/biography": "Teacher ",
+	"http://id.tincanapi.com/extension/bloom": "discover",
+	"http://id.tincanapi.com/extension/provider": "YouTube"
+      },
+      "language": "en"
+    },
+    "actor": {
+      "objectType": "Agent",
+      "name": "Martin Dupont",
+      "mbox": "mailto:lauriane.marxer+lomct@inokufu.com"
+    },
+    "timestamp": "2024-12-04T08:25:06.571Z",
+    "version": "1.0.0",
+    "id": "XXX",
+    "verb": {
+      "id": "https://w3id.org/xapi/dod-isd/verbs/proposed",
+      "display": {
+        "en-US": "proposed"
+      }
+    },
+    "object": {
+      "id": "https://www.youtube.com/watch?v=hLE-5ElGlPM",
+      "objectType": "Activity"
+    }
+  },
+  "verbs": [
+    "https://w3id.org/xapi/dod-isd/verbs/proposed"
+  ],
+  "timestamp": "2024-12-04T08:25:06.571Z",
+  "relatedActivities": [
+    "https://www.youtube.com/watch?v=hLE-5ElGlPM"
+  ],
+  "relatedAgents": [
+    "mailto:lauriane.marxer+lomct@inokufu.com",
+    "mailto:contact@inokufu.com"
+  ],
+}

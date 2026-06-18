@@ -1,0 +1,53 @@
+---
+services:
+  dva-api:
+    build:
+      context: ../
+      dockerfile: ./dva-api/Dockerfile
+  dva-processing:
+    build:
+      context: ../
+      dockerfile: ./dva-processing/Dockerfile
+    init: true
+  rabbit:
+    image: rabbitmq:4-management-alpine
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_port_connectivity
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dva
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: pg_isready
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  karate:
+    build: karate/
+    volumes:
+      - ./karate-features:/app/features:ro
+      - ./test-data:/app/test-data:ro
+      - ./karate-reports:/app/target/karate-reports
+      - ./karate-configs:/app/classpath:ro
+      - ./karate-logs:/app/target/karate-logs
+    command: ./features/
+  aca-py:
+    image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.12.6
+  dva-aca-py-controller:
+    build:
+      context: ../
+      dockerfile: ./dva-acapy-controller/Dockerfile
+    init: true
+    healthcheck:
+      test: nc -z localhost 8050
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  dva-dashboard:
+    build: ../dva-dashboard/
+  vla-manager:
+    build: ../vla-manager/

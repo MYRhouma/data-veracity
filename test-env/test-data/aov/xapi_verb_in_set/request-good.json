@@ -1,0 +1,189 @@
+{
+  "exchangeID": "xchg-0001",
+  "contract": {
+    "id": "contract-0001",
+    "dataProvider": "/catalog/participants/provider-test-id",
+    "dataConsumer": "/catalog/participants/consumer-test-did",
+    "serviceOffering": "/catalog/serviceofferings/serviceoffering-test-did",
+    "purpose": [
+      {
+        "purpose": "/catalog/serviceofferings",
+        "piiCategory": []
+      }
+    ],
+    "negotiators": [
+      {
+        "did": "/catalog/participants/provider-test-id"
+      },
+      {
+        "did": "/catalog/participants/consumer-test-did"
+      }
+    ],
+    "status": "pending",
+    "policy": [
+      {
+        "uid": "/policy/policy-0-uid",
+        "permission": [
+          {
+            "type": "hu.bme.mit.ftsrg.odrl.model.rule.Permission",
+            "target": "/target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7",
+            "rule": {
+              "action": "use"
+            }
+          }
+        ]
+      }
+    ],
+    "vla": {
+      "apiVersion": "v3.0.1",
+      "dataProduct": "test",
+      "id": "2e99b60d-8cf7-4668-a234-96ebfd6a2b63",
+      "kind": "DataContract",
+      "name": "test",
+      "schema": [
+        {
+          "logicalType": "object",
+          "properties": [
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "id"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "actor"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "verb"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "object"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "result"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "context"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "timestamp"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "stored"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "version"
+              }
+            }
+          ],
+          "quality": [
+            {
+              "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQualityCustom",
+              "engine": "JQ",
+              "implementation": "if [.verb.id] | inside(['https://w3id.org/xapi/netc/verbs/accessed', 'https://w3id.org/xapi/netc/verbs/reviewed']) then { success: true, details: 'Verb is in allowlist' } else { success: false, details: 'Verb is not allowed' } end",
+              "dataQuality": {
+                "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQuality",
+                "type": "custom"
+              }
+            }
+          ],
+          "schemaElement": {
+            "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+            "name": "xapi_statement"
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    }
+  },
+  "data": [
+    {
+      "actor": {
+        "account": {
+          "name": "8adbd26cf5a67baf",
+          "homePage": "https://www.inokufu.com/"
+        },
+        "objectType": "Agent"
+      },
+      "verb": {
+        "id": "https://w3id.org/xapi/netc/verbs/accessed"
+      },
+      "object": {
+        "objectType": "Activity",
+        "id": "https://www.inokufu.com/fr/accueil/",
+        "definition": {
+          "type": "https://w3id.org/xapi/acrossx/activities/webpage",
+          "name": {
+            "en": "Inokufu | Better data for better learning"
+          },
+          "extensions": {
+            "https://w3id&46;org/xapi/acrossx/extensions/type": "website"
+          }
+        }
+      },
+      "context": {
+        "contextActivities": {
+          "category": [
+            {
+              "id": "https://w3id.org/xapi/lms",
+              "definition": {
+                "type": "http://adlnet.gov/expapi/activities/profile"
+              },
+              "objectType": "Activity"
+            }
+          ]
+        },
+        "extensions": {
+          "http://id&46;tincanapi&46;com/extension/duration": "13s",
+          "http://id&46;tincanapi&46;com/extension/browser-info": "Chrome 128.0"
+        }
+      },
+      "version": "1.0.0",
+      "timestamp": "2024-09-04T20:18:46.887Z",
+      "id": "2d256bbb-adec-426e-826c-f4db0e640030",
+      "stored": "2024-09-06T14:41:14.979Z",
+      "authority": {
+        "objectType": "Agent",
+        "name": "Mockup WALRUC write",
+        "mbox": "mailto:contact@inokufu.com"
+      }
+    }
+  ],
+  "attesterID": "attester-0000"
+}

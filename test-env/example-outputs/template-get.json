@@ -1,0 +1,44 @@
+[
+  {
+    "id": "a3be74b8-a7dc-4c42-aa83-59b678004748",
+    "name": "TestTemplate",
+    "description": "VLA Template used for testing",
+    "criterionType": "VALID_INVALID",
+    "targetAspect": "SYNTAX",
+    "evaluationMethod": {
+      "engine": "JQ",
+      "variableSchema": {
+        "properties": {
+          "date": {
+            "type": "string"
+          }
+        }
+      },
+      "implementationTemplate": "{ success: .date == '{{ date }}' }"
+    }
+  },
+  {
+    "id": "d6b4510a-68ae-43af-8e39-14ed7302c318",
+    "name": "AnotherTestTemplate",
+    "description": "VLA Template used for testing #2",
+    "criterionType": "IN_RANGE",
+    "targetAspect": "CONSISTENCY",
+    "evaluationMethod": {
+      "engine": "JQ",
+      "variableSchema": {
+        "properties": {
+          "property": {
+            "type": "sring"
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          }
+        }
+      },
+      "implementationTemplate": "{ success: .{{ property }} >= {{ minimum }} and .{{ property }} <= {{ maximum }} }"
+    }
+  }
+]

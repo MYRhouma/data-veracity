@@ -1,0 +1,179 @@
+{
+  "exchangeID": "xchg-0001",
+  "contract": {
+    "id": "contract-0001",
+    "dataProvider": "/catalog/participants/provider-test-id",
+    "dataConsumer": "/catalog/participants/consumer-test-did",
+    "serviceOffering": "/catalog/serviceofferings/serviceoffering-test-did",
+    "purpose": [
+      {
+        "purpose": "/catalog/serviceofferings",
+        "piiCategory": []
+      }
+    ],
+    "negotiators": [
+      {
+        "did": "/catalog/participants/provider-test-id"
+      },
+      {
+        "did": "/catalog/participants/consumer-test-did"
+      }
+    ],
+    "status": "pending",
+    "policy": [
+      {
+        "uid": "/policy/policy-0-uid",
+        "permission": [
+          {
+            "type": "hu.bme.mit.ftsrg.odrl.model.rule.Permission",
+            "target": "/target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7",
+            "rule": {
+              "action": "use"
+            }
+          }
+        ]
+      }
+    ],
+    "vla": {
+      "apiVersion": "v3.0.1",
+      "dataProduct": "test",
+      "id": "2e99b60d-8cf7-4668-a234-96ebfd6a2b63",
+      "kind": "DataContract",
+      "name": "test",
+      "schema": [
+        {
+          "logicalType": "object",
+          "properties": [
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "id"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "actor"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "verb"
+              }
+            },
+            {
+              "logicalType": "object",
+              "required": true,
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "object"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "result"
+              }
+            },
+            {
+              "logicalType": "object",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "context"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "timestamp"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "stored"
+              }
+            },
+            {
+              "logicalType": "string",
+              "schemaElement": {
+                "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+                "name": "version"
+              }
+            }
+          ],
+          "quality": [
+            {
+              "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQualityCustom",
+              "engine": "JQ",
+              "implementation": "if .result.score.raw >= .result.score.min and .result.score.raw <= .result.score.max then { success: true, details: 'Score is within range' } else { success: false, details: 'Invalid score is out of range' } end",
+              "dataQuality": {
+                "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQuality",
+                "type": "custom"
+              }
+            }
+          ],
+          "schemaElement": {
+            "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+            "name": "xapi_statement"
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    }
+  },
+  "data": [
+    {
+      "statement": {
+        "authority": {
+          "objectType": "Agent",
+          "name": "Mockup LOMCT write",
+          "mbox": "mailto:contact@inokufu.com"
+        },
+        "timestamp": "2024-04-11T14:17:43.686Z",
+        "version": "1.0.0",
+        "context": {
+          "extensions": {
+            "http://schema&46;prometheus-x&46;org/extension/username": "victorhugo",
+            "http://schema&46;prometheus-x&46;org/extension/biography": "history teacher at high school"
+          },
+          "language": "en"
+        },
+        "actor": {
+          "name": "victorhugo",
+          "mbox": "mailto:lauriane.marxer+lomct1@inokufu.com",
+          "objectType": "Agent"
+        },
+        "verb": {
+          "id": "http://id.tincanapi.com/verb/reviewed"
+        },
+        "object": {
+          "id": "https://en.wikipedia.org/wiki/Nonformal_learning",
+          "objectType": "Activity"
+        },
+        "result": {
+          "score": {
+            "scaled": 1,
+            "raw": 3,
+            "min": 0,
+            "max": 5
+          },
+          "response": "This is a good article on informal learning. I recommend it."
+        },
+        "id": "ee689a9b-1007-4425-9f75-a678f575797d",
+        "stored": "2024-09-06T12:49:53.935Z"
+      }
+    }
+  ],
+  "attesterID": "attester-0000"
+}

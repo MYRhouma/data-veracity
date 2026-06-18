@@ -1,0 +1,108 @@
+{
+  "stored": "2024-03-11T14:03:18.048Z",
+  "priority": "MEDIUM",
+  "active": true,
+  "completedForwardingQueue": [],
+  "failedForwardingLog": [],
+  "client": "626a34fe1deb08f53ac12609",
+  "lrs_id": "626a34fe1deb08d43dc12608",
+  "completedQueues": [
+    "STATEMENT_QUERYBUILDERCACHE_QUEUE",
+    "STATEMENT_PERSON_QUEUE",
+    "STATEMENT_FORWARDING_QUEUE"
+  ],
+  "activities": [
+    "https://becomino.com/search/autocomplete%3Dvente"
+  ],
+  "hash": "c767c476e1ceec741589d207eb20c88a444f77a2",
+  "agents": [
+    "https://becomino.com/users|1710165537783x892345052938840600"
+  ],
+  "statement": {
+    "authority": {
+      "objectType": "Agent",
+      "name": "Becomino",
+      "mbox": "mailto:contact@becomino.com"
+    },
+    "stored": "2024-03-11T14:03:18.048Z",
+    "context": {
+      "contextActivities": {
+        "parent": [
+          {
+            "id": "https://becomino.com/account",
+            "objectType": "Activity"
+          }
+        ],
+        "category": [
+          {
+            "id": "https://becomino.com/category/404",
+            "objectType": "Activity"
+          }
+        ],
+        "grouping": [
+          {
+            "id": "https://becomino.com/board/404",
+            "objectType": "Activity"
+          }
+        ]
+      },
+      "language": "fr"
+    },
+    "actor": {
+      "account": {
+        "homePage": "https://becomino.com/users",
+        "name": "1710165537783x892345052938840600"
+      },
+      "objectType": "Agent"
+    },
+    "timestamp": "2024-03-11T14:03:06.821Z",
+    "version": "1.0.0",
+    "id": "773aa025-fa60-4dab-97f7-515efdf1e2cb",
+    "verb": {
+      "id": "https://w3id.org/xapi/acrossx/verbs/searched",
+      "display": {
+        "en-US": "searched"
+      }
+    },
+    "object": {
+      "id": "https://becomino.com/search/autocomplete%3Dvente",
+      "definition": {
+        "name": {
+          "fr": "autocomplete=vente"
+        },
+        "description": {
+          "fr": ""
+        }
+      },
+      "objectType": "Activity"
+    }
+  },
+  "hasGeneratedId": true,
+  "deadForwardingQueue": [],
+  "voided": false,
+  "verbs": [
+    "https://w3id.org/xapi/acrossx/verbs/searched"
+  ],
+  "personaIdentifier": "65ef0e8cfff35065a8efaec2",
+  "processingQueues": [],
+  "person": {
+    "_id": "65ef0e8c99ffaefc9516664e",
+    "display": "1710165537783x892345052938840600 - https://becomino.com/users (xAPI Account)"
+  },
+  "__v": 1,
+  "timestamp": "2024-03-11T14:03:06.821Z",
+  "relatedActivities": [
+    "https://becomino.com/search/autocomplete%3Dvente",
+    "https://becomino.com/account",
+    "https://becomino.com/board/404",
+    "https://becomino.com/category/404"
+  ],
+  "relatedAgents": [
+    "https://becomino.com/users|1710165537783x892345052938840600",
+    "mailto:contact@becomino.com"
+  ],
+  "organisation": "626a340cccbcc9000aff1421",
+  "_id": "65ef0f26c56582001cca4928",
+  "registrations": [],
+  "pendingForwardingQueue": []
+}
