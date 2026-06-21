@@ -13,7 +13,11 @@ from .model import (
     EvaluationRequest,
     EvaluationResult,
     Requirement,
+    TrancheEvaluation,
+    TrancheFieldResult,
 )
+from .tranches import evaluate_tranches
+from .xapi_checks import XAPI_FIELD_CHECKS
 from .util import now
 
 logger = get_logger()
@@ -72,6 +76,33 @@ def handle_aov_request(request: AoVRequest) -> AoVGenerationRequest:
 
     all_success: bool = all(x.success for x in results)
 
+    # Evaluate xAPI tranches (9-field compliance)
+    tranche_raw = evaluate_tranches(request.data)
+    tranche_eval = TrancheEvaluation(
+        tranche_level=tranche_raw["tranche_level"],
+        percentage=tranche_raw["percentage"],
+        mandatory_passed=tranche_raw["mandatory_passed"],
+        mandatory_failed=tranche_raw["mandatory_failed"],
+        optional_passed=tranche_raw["optional_passed"],
+        optional_failed=tranche_raw["optional_failed"],
+        total_passed=tranche_raw["total_passed"],
+        total_failed=tranche_raw["total_failed"],
+        field_results=[
+            TrancheFieldResult(
+                name=check.name,
+                mandatory=check.mandatory,
+                passed=tranche_raw["per_item"][0]["fields"].get(check.name, False) if tranche_raw["per_item"] else False,
+            )
+            for check in XAPI_FIELD_CHECKS
+        ],
+    )
+    logger.info(
+        "Tranche evaluation complete",
+        tranche_level=tranche_eval.tranche_level,
+        percentage=tranche_eval.percentage,
+        request_id=request.id,
+    )
+
     # Log evaluation results to psql database
     try:
         with pg.connect(f"{PG_URL}?user={PG_USER}&password={PG_PASS}") as conn:
@@ -81,19 +112,27 @@ def handle_aov_request(request: AoVRequest) -> AoVGenerationRequest:
             SET
               evaluation_passing = %s,
               evaluation_date = %s,
-              evaluation_results = %s
+              evaluation_results = %s,
+              tranche_level = %s,
+              tranche_percentage = %s,
+              tranche_evaluation = %s
             WHERE request_id = %s
             """,
                 (
                     all_success,
                     now().isoformat(),
                     json.dumps([r.model_dump_json() for r in results]),
+                    tranche_eval.tranche_level,
+                    tranche_eval.percentage,
+                    tranche_eval.model_dump_json(),
                     request.id,
                 ),
             )
         logger.info(
             f"Successfully updated PostgreSQL entry for request {request.id}",
             overall_result=all_success,
+            tranche_level=tranche_eval.tranche_level,
+            tranche_percentage=tranche_eval.percentage,
             request_id=request.id,
         )
     except Exception as e:
@@ -101,7 +140,7 @@ def handle_aov_request(request: AoVRequest) -> AoVGenerationRequest:
             f"Failed to update request log entry for request {request.id}", error=e
         )
 
-    # Return AoV generation request for ACA-Py
+    # Return AoV generation request for VC issuer
     return AoVGenerationRequest(
         request_id=request.id,
         exchange_id=request.exchangeID,
@@ -111,6 +150,7 @@ def handle_aov_request(request: AoVRequest) -> AoVGenerationRequest:
         payload=AoVGenerationRequestPayload(
             success=all_success,
             results=results,
+            tranche_evaluation=tranche_eval,
         ),
         target="self",
     )

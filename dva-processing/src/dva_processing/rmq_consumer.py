@@ -7,7 +7,7 @@ from pika import BasicProperties, BlockingConnection, ConnectionParameters
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic
 
-from .config import ACA_PY_CONTROLLER_URL, QUEUE_NAME, RABBITMQ_HOST
+from .config import ACA_PY_CONTROLLER_URL, QUEUE_NAME, RABBITMQ_HOST, VC_ISSUER_URL, VC_BACKEND, DVA_API_KEY
 from .log import get_logger
 from .model import AoVGenerationRequest, AoVRequest
 from .processing import handle_aov_request
@@ -52,17 +52,20 @@ def run() -> None:
             return
 
         try:
+            vc_url = VC_ISSUER_URL if VC_BACKEND == "vc_issuer" else f"{ACA_PY_CONTROLLER_URL}"
             logger.info(
-                "Sending AoV VC generation request to ACA-Py", request=aov_gen_request
+                "Sending AoV VC generation request", request=aov_gen_request, backend=VC_BACKEND, url=vc_url
             )
+            headers = {"X-API-Key": DVA_API_KEY} if VC_BACKEND == "vc_issuer" else {}
             resp = requests.post(
-                f"{ACA_PY_CONTROLLER_URL}/generate_aov",
+                f"{vc_url}/generate_aov",
                 json=aov_gen_request.model_dump(mode="json"),
+                headers=headers,
                 timeout=30,
             )
             resp.raise_for_status()
         except Exception as e:
-            logger.error("Failed to forward to ACA-Py controller; nacking for requeue", error=e)
+            logger.error("Failed to forward to VC issuer; nacking for requeue", error=e)
             chan.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
             return
 

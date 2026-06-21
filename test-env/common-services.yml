@@ -47,6 +47,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+  dva-vc-issuer:
+    build:
+      context: ../
+      dockerfile: ./dva-vc-issuer/Dockerfile
+    init: true
+    environment:
+      DVA_VC_KEY_PATH: /data/keys/private_key.pem
+      DVA_API_KEY: changeme
+    healthcheck:
+      test: "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8050/health')\""
+      interval: 5s
+      timeout: 5s
+      retries: 3
   dva-dashboard:
     build: ../dva-dashboard/
   vla-manager:

@@ -1,0 +1,111 @@
+{
+  "exchangeID": "xchg-tranche-0003",
+  "contract": {
+    "id": "contract-tranche-0003",
+    "dataProvider": "/catalog/participants/provider-test-id",
+    "dataConsumer": "/catalog/participants/consumer-test-did",
+    "serviceOffering": "/catalog/serviceofferings/serviceoffering-test-did",
+    "purpose": [
+      {
+        "purpose": "/catalog/serviceofferings",
+        "piiCategory": []
+      }
+    ],
+    "negotiators": [
+      {
+        "did": "/catalog/participants/provider-test-id"
+      },
+      {
+        "did": "/catalog/participants/consumer-test-did"
+      }
+    ],
+    "status": "pending",
+    "policy": [
+      {
+        "uid": "/policy/policy-0-uid",
+        "permission": [
+          {
+            "type": "hu.bme.mit.ftsrg.odrl.model.rule.Permission",
+            "target": "/target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7",
+            "rule": {
+              "action": "use"
+            }
+          }
+        ]
+      }
+    ],
+    "vla": {
+      "apiVersion": "v3.0.1",
+      "dataProduct": "test",
+      "id": "2e99b60d-8cf7-4668-a234-96ebfd6a2b63",
+      "kind": "DataContract",
+      "name": "test",
+      "schema": [
+        {
+          "logicalType": "object",
+          "properties": [],
+          "quality": [
+            {
+              "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQualityCustom",
+              "engine": "JQ",
+              "implementation": "if .statement.actor != null then {success: true, details: \"actor present\"} else {success: false, details: \"no actor\"} end",
+              "dataQuality": {
+                "data_quality_type": "hu.bme.mit.ftsrg.odcs.model.quality.DataQuality",
+                "type": "custom"
+              }
+            }
+          ],
+          "schemaElement": {
+            "type": "hu.bme.mit.ftsrg.odcs.model.schema.SchemaElement",
+            "name": "xapi_statement"
+          }
+        }
+      ],
+      "status": "active",
+      "version": "1.0.0"
+    }
+  },
+  "data": [
+    {
+      "statement": {
+        "actor": {
+          "objectType": "Agent",
+          "name": "Benjamin",
+          "mbox": "mailto:Benjamin@inokufu.com"
+        },
+        "verb": {
+          "id": "http://id.tincanapi.com/verb/reviewed",
+          "display": {
+            "en-US": "reviewed"
+          }
+        },
+        "object": {
+          "id": "https://www.youtube.com/watch?v=AZpJe-GwAIw",
+          "objectType": "Activity",
+          "definition": {
+            "type": "https://w3id.org/xapi/acrossx/activities/webpage",
+            "name": {
+              "en": "Test Activity"
+            }
+          }
+        },
+        "timestamp": "2024-09-26T14:06:13.369Z",
+        "context": {
+          "language": "en",
+          "extensions": {
+            "http://schema.org/extension/username": "Benjamin"
+          }
+        },
+        "result": {
+          "score": {
+            "raw": 5,
+            "min": 0,
+            "max": 10
+          },
+          "response": "the best"
+        }
+      }
+    }
+  ],
+  "attesterID": "attester-0000"
+}

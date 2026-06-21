@@ -31,6 +31,9 @@ class FakeReqestLogRepo : ReqestLogRepo {
             evaluationDate = request.evaluationDate,
             vcIssuedDate = request.vcIssuedDate,
             vcID = request.vcID,
+            trancheLevel = request.trancheLevel,
+            tranchePercentage = request.tranchePercentage,
+            trancheEvaluation = request.trancheEvaluation,
         )
         requests.put(entity.id, entity)
         return entity

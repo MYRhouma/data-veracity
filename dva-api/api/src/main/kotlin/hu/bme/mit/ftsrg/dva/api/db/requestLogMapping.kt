@@ -32,6 +32,9 @@ object RequestLogsTable : UUIDTable("request_logs") {
     val evaluationDate = datetime("evaluation_date").nullable()
     val vcIssuedDate = datetime("vc_issued_date").nullable()
     val vcID = varchar("vc_id", 255).nullable()
+    val trancheLevel = varchar("tranche_level", 50).nullable()
+    val tranchePercentage = integer("tranche_percentage").nullable()
+    val trancheEvaluation = text("tranche_evaluation").nullable()
 }
 
 class RequestLogEntity(id: EntityID<UUID>) : UUIDEntity(id) {
@@ -50,6 +53,9 @@ class RequestLogEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var evaluationDate by RequestLogsTable.evaluationDate
     var vcIssuedDate by RequestLogsTable.vcIssuedDate
     var vcID by RequestLogsTable.vcID
+    var trancheLevel by RequestLogsTable.trancheLevel
+    var tranchePercentage by RequestLogsTable.tranchePercentage
+    var trancheEvaluation by RequestLogsTable.trancheEvaluation
 }
 
 @OptIn(ExperimentalTime::class)
@@ -68,4 +74,7 @@ fun RequestLogEntity.toModel() = RequestLog(
     evaluationDate = evaluationDate?.toInstant(UTC),
     vcIssuedDate = vcIssuedDate?.toInstant(UTC),
     vcID = vcID,
+    trancheLevel = trancheLevel,
+    tranchePercentage = tranchePercentage,
+    trancheEvaluation = trancheEvaluation,
 )

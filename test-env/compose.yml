@@ -9,13 +9,15 @@ services:
       DVA_RABBITMQ_HOST: rabbit-provider
       DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+      DVA_VC_ISSUER_URL: http://dva-vc-issuer-provider:8050
+      DVA_VC_BACKEND: vc_issuer
+      DVA_API_KEY: changeme
     ports: [9091:9090]
     depends_on:
       dva-processing-provider: {condition: service_healthy}
       rabbit-provider: {condition: service_healthy}
       postgres-provider: {condition: service_healthy}
-      aca-py-provider: {condition: service_healthy}
-      dva-aca-py-controller-provider: {condition: service_healthy}
+      dva-vc-issuer-provider: {condition: service_healthy}
   dva-api-consumer:
     extends:
       file: common-services.yml
@@ -25,13 +27,15 @@ services:
       DVA_RABBITMQ_HOST: rabbit-consumer
       DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+      DVA_VC_ISSUER_URL: http://dva-vc-issuer-consumer:8050
+      DVA_VC_BACKEND: vc_issuer
+      DVA_API_KEY: changeme
     ports: [9092:9090]
     depends_on:
       dva-processing-consumer: {condition: service_healthy}
       rabbit-consumer: {condition: service_healthy}
       postgres-consumer: {condition: service_healthy}
-      aca-py-consumer: {condition: service_healthy}
-      dva-aca-py-controller-consumer: {condition: service_healthy}
+      dva-vc-issuer-consumer: {condition: service_healthy}
   dva-api-vla-manager:
     extends:
       file: common-services.yml
@@ -54,6 +58,9 @@ services:
       DVA_RABBITMQ_HOST: rabbit-provider
       DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+      DVA_VC_ISSUER_URL: http://dva-vc-issuer-provider:8050
+      DVA_VC_BACKEND: vc_issuer
+      DVA_API_KEY: changeme
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -62,6 +69,7 @@ services:
     depends_on:
       rabbit-provider: {condition: service_healthy}
       postgres-provider: {condition: service_healthy}
+      dva-vc-issuer-provider: {condition: service_healthy}
   dva-processing-consumer:
     extends:
       file: common-services.yml
@@ -71,6 +79,9 @@ services:
       DVA_RABBITMQ_HOST: rabbit-consumer
       DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+      DVA_VC_ISSUER_URL: http://dva-vc-issuer-consumer:8050
+      DVA_VC_BACKEND: vc_issuer
+      DVA_API_KEY: changeme
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -79,6 +90,7 @@ services:
     depends_on:
       rabbit-consumer: {condition: service_healthy}
       postgres-consumer: {condition: service_healthy}
+      dva-vc-issuer-consumer: {condition: service_healthy}
   dva-processing-vla-manager:
     extends:
       file: common-services.yml
@@ -232,6 +244,30 @@ services:
     depends_on:
       aca-py-consumer: {condition: service_healthy}
       postgres-consumer: {condition: service_healthy}
+  dva-vc-issuer-provider:
+    extends:
+      file: common-services.yml
+      service: dva-vc-issuer
+    environment:
+      DVA_VC_DID_DOMAIN: dva-vc-issuer-provider
+      DVA_API_KEY: changeme
+    volumes:
+      - vc-keys-provider:/data/keys
+    ports: [8061:8050]
+    depends_on:
+      postgres-provider: {condition: service_healthy}
+  dva-vc-issuer-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-vc-issuer
+    environment:
+      DVA_VC_DID_DOMAIN: dva-vc-issuer-consumer
+      DVA_API_KEY: changeme
+    volumes:
+      - vc-keys-consumer:/data/keys
+    ports: [8062:8050]
+    depends_on:
+      postgres-consumer: {condition: service_healthy}
   dva-dashboard-provider:
     extends:
       file: common-services.yml
@@ -259,3 +295,7 @@ services:
     ports: [3020:80]
     depends_on:
       dva-api-vla-manager: {condition: service_healthy}
+
+volumes:
+  vc-keys-provider:
+  vc-keys-consumer:

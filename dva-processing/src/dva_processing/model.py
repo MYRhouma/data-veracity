@@ -17,6 +17,13 @@ class QualityEngine(CapitalStrEnum):
     jq = auto()
 
 
+class TrancheLevelEnum(StrEnum):
+    INCOMPLETE = "incomplete"
+    BASIC = "basic"
+    ENRICHED = "enriched"
+    FULL = "full"
+
+
 class Requirement(BaseModel):
     implementation: str
     engine: QualityEngine
@@ -43,9 +50,28 @@ class AoVRequest(BaseModel):
     attesterID: str
 
 
+class TrancheFieldResult(BaseModel):
+    name: str
+    mandatory: bool
+    passed: bool
+
+
+class TrancheEvaluation(BaseModel):
+    tranche_level: str = "incomplete"
+    percentage: int = 0
+    mandatory_passed: list[str] = []
+    mandatory_failed: list[str] = []
+    optional_passed: list[str] = []
+    optional_failed: list[str] = []
+    total_passed: int = 0
+    total_failed: int = 0
+    field_results: list[TrancheFieldResult] = []
+
+
 class AoVGenerationRequestPayload(BaseModel):
     success: bool
     results: list[EvaluationResult]
+    tranche_evaluation: Optional[TrancheEvaluation] = None
 
 
 class AoVGenerationRequest(BaseModel):

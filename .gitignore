@@ -30,10 +30,11 @@ venv/
 # Gradle / Kotlin / Java
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 *.class
-*.jar
 *.war
+
+# Don't ignore gradle wrapper jar
+!gradle/wrapper/gradle-wrapper.jar
 
 # IDE
 .idea/

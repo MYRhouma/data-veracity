@@ -40,6 +40,9 @@ class PgRequestLogRepo : ReqestLogRepo {
             evaluationDate = request.evaluationDate?.toLocalDateTime(UTC)
             vcIssuedDate = request.vcIssuedDate?.toLocalDateTime(UTC)
             vcID = request.vcID
+            trancheLevel = request.trancheLevel
+            tranchePercentage = request.tranchePercentage
+            trancheEvaluation = request.trancheEvaluation
         }.toModel()
     }
 }

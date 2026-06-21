@@ -29,6 +29,9 @@ data class RequestLog(
     val evaluationDate: Instant? = null,
     val vcIssuedDate: Instant? = null,
     val vcID: String? = null,
+    val trancheLevel: String? = null,
+    val tranchePercentage: Int? = null,
+    val trancheEvaluation: String? = null,
 )
 
 @Serializable
@@ -49,4 +52,7 @@ data class RequestLogNew(
     val evaluationDate: Instant? = null,
     val vcIssuedDate: Instant? = null,
     val vcID: String? = null,
+    val trancheLevel: String? = null,
+    val tranchePercentage: Int? = null,
+    val trancheEvaluation: String? = null,
 )
