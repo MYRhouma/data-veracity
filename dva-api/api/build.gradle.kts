@@ -23,12 +23,15 @@ dependencies {
 
     implementation(libs.handlebars.java)
 
-    implementation(project(":model"))
+implementation(libs.nimbus.jose.jwt)
+
+implementation(project(":model"))
 
     runtimeOnly(libs.logevents)
 
     testImplementation(libs.bundles.testcontainers.rabbitmq)
     testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.server.test.host)
 }
 
