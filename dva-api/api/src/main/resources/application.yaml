@@ -24,3 +24,9 @@ acaPy:
     url: "$DVA_ACA_PY_AGENT_URL:http://localhost:8030"
   controller:
     url: "$DVA_ACA_PY_CONTROLLER_URL:http://localhost:8050"
+
+dva:
+  signingKeyPath: "$DVA_SIGNING_KEY_PATH:./dva-signing-key.pem"
+  apiKey: "$DVA_API_KEY:"
+  attestation:
+    mode: "$DVA_ATTESTATION_MODE:sync"
