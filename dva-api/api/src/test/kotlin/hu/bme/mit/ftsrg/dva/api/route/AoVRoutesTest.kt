@@ -2,9 +2,12 @@ package hu.bme.mit.ftsrg.dva.api.route
 
 import com.rabbitmq.client.Connection
 import com.rabbitmq.client.ConnectionFactory
+import hu.bme.mit.ftsrg.dva.api.jws.SigningKeyStore
 import hu.bme.mit.ftsrg.dva.api.testutil.createTestClient
 import hu.bme.mit.ftsrg.dva.api.testutil.setupTestApplication
 import hu.bme.mit.ftsrg.dva.dto.aov.AttestationRequestDTO
+import hu.bme.mit.ftsrg.dva.jws.FakeWhitelistRepo
+import hu.bme.mit.ftsrg.dva.jws.WhitelistRepo
 import hu.bme.mit.ftsrg.dva.log.FakeReqestLogRepo
 import hu.bme.mit.ftsrg.dva.log.FakeVerifRequestLogRepo
 import hu.bme.mit.ftsrg.dva.log.ReqestLogRepo
@@ -24,6 +27,7 @@ import org.koin.ktor.plugin.Koin
 import org.testcontainers.containers.RabbitMQContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.nio.file.Files
 import java.util.*
 
 @Testcontainers
@@ -202,6 +206,8 @@ class AoVRoutesTest {
     }
 
     private fun ApplicationTestBuilder.setupApplication() = setupTestApplication {
+        val keyDir = Files.createTempDirectory("dva-aov-keys")
+        val keyPath = keyDir.resolve("test-signing-key.pem")
         val testModule = module {
             single<ReqestLogRepo> { FakeReqestLogRepo() }
             single<VerifRequestLogRepo> { FakeVerifRequestLogRepo() }
@@ -213,9 +219,11 @@ class AoVRoutesTest {
                     newConnection()
                 }
             }
+            single<WhitelistRepo> { FakeWhitelistRepo() }
+            single { SigningKeyStore(keyPath.toString()) }
         }
         this.install(Koin) { modules(testModule) }
 
-        aovRoutes()
+        aovRoutes(attestationMode = "async")
     }
 }
