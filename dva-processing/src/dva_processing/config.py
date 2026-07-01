@@ -19,6 +19,11 @@ LOG_LEVEL = env.get("DVA_LOG_LEVEL", default="warn")
 # ACA-Py Controller URL
 ACA_PY_CONTROLLER_URL = env.get("DVA_ACA_PY_CONTROLLER_URL", default="localhost:8050")
 
+# AoV issuer mode: "acapy" (default, legacy) forwards to ACA-Py /generate_aov;
+# "jws" skips the forward — the dva-api sync /attestation endpoint already
+# returned the signed JWS to the caller.
+DVA_ISSUER = env.get("DVA_ISSUER", default="acapy")
+
 
 class Configuration(BaseModel):
     log_level: str = LOG_LEVEL

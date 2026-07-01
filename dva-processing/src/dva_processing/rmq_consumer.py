@@ -7,7 +7,7 @@ from pika import BasicProperties, BlockingConnection, ConnectionParameters
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic
 
-from .config import ACA_PY_CONTROLLER_URL, QUEUE_NAME, RABBITMQ_HOST
+from .config import ACA_PY_CONTROLLER_URL, DVA_ISSUER, QUEUE_NAME, RABBITMQ_HOST
 from .log import get_logger
 from .model import AoVGenerationRequest, AoVRequest
 from .processing import handle_aov_request
@@ -38,18 +38,29 @@ def run() -> None:
             logger.warning("Not all checks were successful; not sending to ACA-Py")
             return
 
-        logger.info(
-            "Sending AoV VC generation request to ACA-Py", request=aov_gen_request
-        )
-        requests.post(
-            f"{ACA_PY_CONTROLLER_URL}/generate_aov",
-            json=aov_gen_request.model_dump(mode="json"),
-        )
+        forward_aov_generation(aov_gen_request)
 
     chan.basic_consume(queue=QUEUE_NAME, auto_ack=True, on_message_callback=callback)
-
     logger.info("Waiting for RMQ messages")
     chan.start_consuming()
+
+
+def forward_aov_generation(aov_gen_request: AoVGenerationRequest) -> None:
+    """Forward the AoV generation request to the configured issuer.
+
+    When DVA_ISSUER=='jws', the dva-api sync /attestation endpoint already
+    returned the signed JWS to the caller, so the ACA-Py /generate_aov forward
+    is skipped entirely. When DVA_ISSUER=='acapy' (default, legacy), the
+    request is POSTed to the ACA-Py controller as before.
+    """
+    if DVA_ISSUER == "jws":
+        logger.info("DVA_ISSUER=jws: skipping ACA-Py /generate_aov forward")
+        return
+    logger.info("Sending AoV VC generation request to ACA-Py", request=aov_gen_request)
+    requests.post(
+        f"{ACA_PY_CONTROLLER_URL}/generate_aov",
+        json=aov_gen_request.model_dump(mode="json"),
+    )
 
 
 def connect_with_retry(
