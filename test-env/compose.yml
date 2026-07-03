@@ -9,13 +9,15 @@ services:
       DVA_RABBITMQ_HOST: rabbit-provider
       DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+      # Drop-in (JWS) default — set DVA_ATTESTATION_MODE=async to use ACA-Py.
+      DVA_ATTESTATION_MODE: sync
+      DVA_API_KEY: ""
+      DVA_SIGNING_KEY_PATH: /data/dva-signing-key.pem
     ports: [9091:9090]
     depends_on:
       dva-processing-provider: {condition: service_healthy}
       rabbit-provider: {condition: service_healthy}
       postgres-provider: {condition: service_healthy}
-      aca-py-provider: {condition: service_healthy}
-      dva-aca-py-controller-provider: {condition: service_healthy}
   dva-api-consumer:
     extends:
       file: common-services.yml
@@ -25,13 +27,15 @@ services:
       DVA_RABBITMQ_HOST: rabbit-consumer
       DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+      # Drop-in (JWS) default — set DVA_ATTESTATION_MODE=async to use ACA-Py.
+      DVA_ATTESTATION_MODE: sync
+      DVA_API_KEY: ""
+      DVA_SIGNING_KEY_PATH: /data/dva-signing-key.pem
     ports: [9092:9090]
     depends_on:
       dva-processing-consumer: {condition: service_healthy}
       rabbit-consumer: {condition: service_healthy}
       postgres-consumer: {condition: service_healthy}
-      aca-py-consumer: {condition: service_healthy}
-      dva-aca-py-controller-consumer: {condition: service_healthy}
   dva-api-vla-manager:
     extends:
       file: common-services.yml
@@ -54,6 +58,8 @@ services:
       DVA_RABBITMQ_HOST: rabbit-provider
       DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
+      # Drop-in (JWS) default — set DVA_ISSUER=acapy to forward AoVs to ACA-Py.
+      DVA_ISSUER: jws
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -71,6 +77,8 @@ services:
       DVA_RABBITMQ_HOST: rabbit-consumer
       DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
       DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
+      # Drop-in (JWS) default — set DVA_ISSUER=acapy to forward AoVs to ACA-Py.
+      DVA_ISSUER: jws
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -132,6 +140,7 @@ services:
     extends:
       file: common-services.yml
       service: aca-py
+    profiles: [acapy]
     command: >
       start
         --inbound-transport http 0.0.0.0 8020
@@ -166,6 +175,7 @@ services:
     extends:
       file: common-services.yml
       service: aca-py
+    profiles: [acapy]
     command: >
       start
         --inbound-transport http 0.0.0.0 8020
@@ -200,6 +210,7 @@ services:
     extends:
       file: common-services.yml
       service: dva-aca-py-controller
+    profiles: [acapy]
     environment:
       PYTHONUNBUFFERED: 1
       ADMIN_URL: http://aca-py-provider:8030
@@ -218,6 +229,7 @@ services:
     extends:
       file: common-services.yml
       service: dva-aca-py-controller
+    profiles: [acapy]
     environment:
       PYTHONUNBUFFERED: 1
       ADMIN_URL: http://aca-py-consumer:8030

@@ -1,4 +1,6 @@
 FROM gradle:jdk21-alpine AS cache
+RUN apk --no-cache add openjdk17
+ENV JAVA_HOME_17=/usr/lib/jvm/java-17-openjdk
 RUN mkdir -p /home/gradle/cache_home/
 ARG GRADLE_USER_HOME=/home/gradle/cache_home
 WORKDIR /home/gradle/app/
@@ -7,13 +9,17 @@ COPY ./dva-api/gradle/libs.versions.toml ./gradle/libs.versions.toml
 COPY ./dva-api/buildSrc ./buildSrc
 COPY ./dva-api/api/build.gradle.kts ./api/build.gradle.kts
 COPY ./dva-api/model/build.gradle.kts ./model/build.gradle.kts
-RUN gradle clean build --info --stacktrace --no-daemon
+RUN gradle clean build --info --stacktrace --no-daemon \
+    -Porg.gradle.java.installations.paths=$JAVA_HOME_17
 
 FROM gradle:jdk21-alpine AS build
+RUN apk --no-cache add openjdk17
+ENV JAVA_HOME_17=/usr/lib/jvm/java-17-openjdk
 COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
 COPY --chown=gradle:gradle ./dva-api /home/gradle/src
 WORKDIR /home/gradle/src/
-RUN gradle shadowJar --info --stacktrace --no-daemon
+RUN gradle shadowJar --info --stacktrace --no-daemon \
+    -Porg.gradle.java.installations.paths=$JAVA_HOME_17
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 EXPOSE 9090
