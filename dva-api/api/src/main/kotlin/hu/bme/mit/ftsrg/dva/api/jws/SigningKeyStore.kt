@@ -19,8 +19,8 @@ import java.util.Base64
  * is missing or malformed, a fresh keypair is generated and the private key
  * is persisted. Subsequent calls return the cached pair.
  *
- * @param path filesystem location where the 32 raw private-key bytes are
- *   stored, base64-encoded.
+ * @param path filesystem location where the keypair is stored as
+ *   `base64(PKCS#8 private)|base64(X.509 public)`.
  */
 public class SigningKeyStore(private val path: String) {
 
