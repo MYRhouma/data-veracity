@@ -27,6 +27,11 @@ fun Application.vlaRoutes() {
     val templateRepo by inject<TemplateRepo>()
     val vlaRepo by inject<VLARepo>()
 
+    // Read the API key once at startup (same mechanism used by adminRoutes).
+    // When empty (default), the destructive DELETE /vla endpoint is disabled
+    // entirely to prevent accidental or malicious mass deletion.
+    val apiKey = environment.config.propertyOrNull("dva.apiKey")?.getString().orEmpty()
+
     routing {
         get<VLAs> {
             call.respond(vlaRepo.all())
@@ -122,7 +127,22 @@ fun Application.vlaRoutes() {
         }
 
         delete<VLAs> {
+            // Guard: require a non-empty API key to wipe all VLAs.
+            // When dva.apiKey is empty (default dev config) this endpoint is
+            // disabled entirely — return 401 rather than silently allowing mass deletion.
+            if (apiKey.isEmpty()) {
+                call.respond(io.ktor.http.HttpStatusCode.Unauthorized)
+                return@delete
+            }
+            val header = call.request.headers["Authorization"].orEmpty()
+            val token = header.removePrefix("Bearer ").trim()
+            if (token != apiKey) {
+                call.respond(io.ktor.http.HttpStatusCode.Unauthorized)
+                return@delete
+            }
             vlaRepo.removeAll()
+            // Respond with 204 No Content so Ktor closes the response correctly.
+            call.respond(io.ktor.http.HttpStatusCode.NoContent)
         }
     }
 }
