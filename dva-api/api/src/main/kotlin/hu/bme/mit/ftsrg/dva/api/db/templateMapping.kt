@@ -34,7 +34,7 @@ class TemplateEntity(id: EntityID<UUID>) : UUIDEntity(id) {
 
 object EvaluationMethodsTable : UUIDTable("evaluation_methods") {
     val engine = varchar("engine", 255)
-    val variableShema = text("variable_schema")
+    val variableSchema = text("variable_schema")
     val implementationTemplate = text("implementation_template")
 }
 
@@ -42,7 +42,7 @@ class EvaluationMethodEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<EvaluationMethodEntity>(EvaluationMethodsTable)
 
     var engine by EvaluationMethodsTable.engine
-    var variableSchema by EvaluationMethodsTable.variableShema
+    var variableSchema by EvaluationMethodsTable.variableSchema
     var implementationTemplate by EvaluationMethodsTable.implementationTemplate
 }
 
