@@ -95,11 +95,21 @@ fun Application.aovRoutes(
             // fall back to contract["vla"] (Karate test compatibility)
             val rawVlaId = requestWithID.vlaId
             val vla: JsonObject? = if (!rawVlaId.isNullOrBlank()) {
-                try {
-                    vlaRepo.byID(Uuid.parse(rawVlaId))
-                } catch (e: Exception) {
-                    null
+                // Validate UUID format before querying; a malformed vlaId should be
+                // a clear 400 Bad Request — not silently treated as 'VLA not found'.
+                val parsedUuid = try {
+                    Uuid.parse(rawVlaId)
+                } catch (e: IllegalArgumentException) {
+                    call.respond(
+                        io.ktor.http.HttpStatusCode.BadRequest,
+                        hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                            type = "BAD_REQUEST",
+                            title = "invalid vlaId — expected a UUID v4, got: $rawVlaId",
+                        )
+                    )
+                    return@post
                 }
+                vlaRepo.byID(parsedUuid)
             } else {
                 requestWithID.contract["vla"]?.jsonObject
             }
@@ -146,9 +156,11 @@ fun Application.aovRoutes(
                 ?: requestWithID.attesterID
 
             if (allSuccess) {
-                keyStore.loadOrGenerate()
-                issuerDidKey = keyStore.issuerDidKey()
+                // Single call: load (or generate) the keypair, then derive the
+                // issuer did:key from the cached public key.
                 val pair = keyStore.loadOrGenerate()
+                val issuerDidKeyLocal = keyStore.issuerDidKey()
+                issuerDidKey = issuerDidKeyLocal
                 val claims = AovClaims(
                     vcId = vcId,
                     validSince = now.toString(),
@@ -159,7 +171,7 @@ fun Application.aovRoutes(
                     dataExchangeId = requestWithID.exchangeID,
                     payload = requestWithID.data.toString(),
                 )
-                jws = signEd25519(claims, pair.private as Ed25519PrivateKey, issuerDidKey)
+                jws = signEd25519(claims, pair.private as Ed25519PrivateKey, issuerDidKeyLocal)
             }
 
             // 3. Persist RequestLog with all fields
@@ -171,7 +183,11 @@ fun Application.aovRoutes(
                     requestID = Uuid.parse(requestWithID.id!!),
                     exchangeID = requestWithID.exchangeID,
                     contractID = contractId,
-                    vlaID = vlaIdForLog?.let { Uuid.parse(it) } ?: Uuid.parse("00000000-0000-0000-0000-000000000000"),
+                    // Store null when no vlaId is available rather than a sentinel zero-UUID,
+                    // which would pollute the log and break per-VLA queries.
+                    vlaID = vlaIdForLog?.let {
+                        try { Uuid.parse(it) } catch (_: IllegalArgumentException) { null }
+                    },
                     data = requestWithID.data,
                     attesterID = requestWithID.attesterID,
                     evaluationPassing = allSuccess,
