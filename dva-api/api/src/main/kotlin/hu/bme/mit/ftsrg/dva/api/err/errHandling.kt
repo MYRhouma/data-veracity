@@ -52,5 +52,9 @@ private fun ApplicationCall.toErrorDTO(
     errDTO(type) {
         instance = request.path()
     }.apply {
-        if (cause != null) detail = "${cause.message}\n\nStack Trace:\n${cause.stackTraceToString()}"
+        // Return a safe, generic detail string to the caller.
+        // Full exception message and stack trace are already logged server-side
+        // by handleException(); exposing them in the HTTP body would leak
+        // library names, internal paths, and control-flow details to clients.
+        if (cause != null) detail = "An internal error occurred. Check server logs for details."
     }.apply(init)
