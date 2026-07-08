@@ -57,6 +57,9 @@ fun Application.templateRoutes() {
                     status = BadRequest,
                     ErrDTO(type = "BAD_REQUEST", title = "ID path parameter does not match ID in body")
                 )
+                // Must return here; without this the code falls through to repo.update()
+                // and Ktor throws IllegalStateException on the second respond() call.
+                return@patch
             }
             val updatedTemplate = repo.update(patch) ?: run {
                 call.respond(NotFound)
@@ -86,6 +89,9 @@ fun Application.templateRoutes() {
             val model = call.receive<JsonObject>()
             val renderedQuality = template.render(model) ?: run {
                 call.respond(BadRequest, ErrDTO(type = "BAD_REQUEST", title = "Failed to render template"))
+                // Must return here; without this the outer call.respond() would
+                // be called with Unit (the result of the run block) — double respond.
+                return@post
             }
             call.respond(renderedQuality)
         }
