@@ -223,9 +223,25 @@ fun Application.aovRoutes(
             // --- SYNC MODE ---
             val request: AttestationVerifySyncRequestDTO = call.receive()
 
-            // Whitelist check: if whitelist is non-empty, attester must be listed
+            // Whitelist check (fail-closed):
+            // - Empty whitelist → reject. An empty list means "not set up yet",
+            //   not "accept everyone". This prevents a bypass where an attacker
+            //   simply calls the API before any whitelist entry has been added.
+            // - Non-empty → the attesterDidKey must appear in the list.
             val whitelist = whitelistRepo.all()
-            if (whitelist.isNotEmpty() && !whitelistRepo.contains(request.attesterDidKey)) {
+            if (whitelist.isEmpty()) {
+                call.respond(
+                    Forbidden,
+                    AttestationVerifySyncResponseDTO(
+                        verified = false,
+                        reason = "whitelist is not configured; verification is disabled",
+                        payload = null,
+                    )
+                )
+                return@post
+            }
+            val whitelistEntry = whitelist.find { it.didKey == request.attesterDidKey }
+            if (whitelistEntry == null) {
                 call.respond(
                     Forbidden,
                     AttestationVerifySyncResponseDTO(
@@ -237,15 +253,18 @@ fun Application.aovRoutes(
                 return@post
             }
 
-            // Look up the public key from the did:key
+            // Derive the public key from the whitelist record — NOT from the
+            // caller-supplied attesterDidKey. Trusting the caller to supply the
+            // verification key would let an attacker pass any JWS they control
+            // by presenting a matching did:key they own.
             val publicKey = try {
-                didKeyToEd25519PublicKey(request.attesterDidKey)
+                didKeyToEd25519PublicKey(whitelistEntry.didKey)
             } catch (e: Exception) {
                 call.respond(
                     OK,
                     AttestationVerifySyncResponseDTO(
                         verified = false,
-                        reason = "invalid attester did:key: ${e.message}",
+                        reason = "whitelist entry contains invalid did:key: ${e.message}",
                         payload = null,
                     )
                 )
@@ -305,9 +324,12 @@ private suspend fun handleAsyncAttestation(
             requestID = Uuid.parse(requestWithID.id!!),
             exchangeID = requestWithID.exchangeID,
             contractID = requestWithID.contract["id"].toString(),
-            vlaID = Uuid.parse(
-                requestWithID.contract["vla"]?.jsonObject?.get("id")?.jsonPrimitive?.content!!
-            ),
+            // Extract the VLA id from the embedded contract JSON, if present.
+            // Use null-safe extraction: missing or malformed id stores null rather
+            // than throwing NullPointerException or IllegalArgumentException.
+            vlaID = requestWithID.contract["vla"]
+                ?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+                ?.let { runCatching { Uuid.parse(it) }.getOrNull() },
             data = requestWithID.data,
             attesterID = requestWithID.attesterID,
             receivedDate = Clock.System.now(),

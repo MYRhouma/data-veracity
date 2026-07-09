@@ -40,7 +40,9 @@ data class RequestLogNew(
     val requestID: Uuid,
     val exchangeID: String,
     val contractID: String,
-    val vlaID: Uuid,
+    // Nullable: a request may not have an associated VLA. Storing null is
+    // preferable to a sentinel zero-UUID which pollutes per-VLA queries.
+    val vlaID: Uuid?,
     val data: JsonElement,
     val attesterID: String,
     val evaluationPassing: Boolean? = null,

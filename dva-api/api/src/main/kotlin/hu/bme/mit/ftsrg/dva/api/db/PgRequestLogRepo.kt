@@ -27,7 +27,8 @@ class PgRequestLogRepo : ReqestLogRepo {
             requestID = request.requestID.toString()
             exchangeID = request.exchangeID
             contractID = request.contractID
-            vlaID = request.vlaID.toString()
+            // vlaID is nullable — store null in the DB column when no VLA is linked.
+            vlaID = request.vlaID?.toString()
             data = Json.encodeToString(request.data)
             attesterID = request.attesterID
             evaluationPassing = request.evaluationPassing ?: false

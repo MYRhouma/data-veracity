@@ -23,7 +23,8 @@ object RequestLogsTable : UUIDTable("request_logs") {
     val requestID = varchar("request_id", 255)
     val exchangeID = varchar("exchange_id", 255)
     val contractID = varchar("contract_id", 255)
-    val vlaID = varchar("vla_id", 255)
+    // nullable: a request log may not have an associated VLA
+    val vlaID = varchar("vla_id", 255).nullable()
     val data = text("data")
     val attesterID = varchar("attester_id", 255)
     val evaluationPassing = bool("evaluation_passing").nullable()
@@ -59,7 +60,7 @@ fun RequestLogEntity.toModel() = RequestLog(
     requestID = Uuid.parse(requestID),
     exchangeID = exchangeID,
     contractID = contractID,
-    vlaID = Uuid.parse(vlaID),
+    vlaID = vlaID?.let { runCatching { Uuid.parse(it) }.getOrNull() },
     data = Json.decodeFromString(data),
     attesterID = attesterID,
     evaluationPassing = evaluationPassing,
