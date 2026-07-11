@@ -3,8 +3,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
 
 from .log import get_logger
-from .model import EvaluationResult
-from .processing import EvaluationRequest, handle_eval_request
+from .model import EvaluateBatchRequest, EvaluationResult
+from .processing import EvaluationRequest, handle_eval_batch_request, handle_eval_request
 
 logger = get_logger()
 app = FastAPI()
@@ -20,6 +20,22 @@ def process_request(
         logger.warning("Error during evaluation", error=result.error)
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     return result
+
+
+@app.post("/evaluate-batch", response_model=list[EvaluationResult])
+def process_batch(request: EvaluateBatchRequest):
+    """Veracity checks in the synchronous attestation flow.
+
+    Called by the DVA API with the full VLA document (as retrieved from
+    the VLA Manager API during VLA resolution) and the original data.
+    Returns one :class:`EvaluationResult` per requirement in
+    ``vla.schema[*].quality[*]``.
+    """
+    logger.info(
+        "Received batch evaluation request",
+        vla_keys=list((request.vla or {}).keys()),
+    )
+    return handle_eval_batch_request(request)
 
 
 @app.exception_handler(RequestValidationError)

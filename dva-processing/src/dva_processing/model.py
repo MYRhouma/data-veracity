@@ -27,35 +27,27 @@ class EvaluationRequest(BaseModel):
     data: Any
 
 
+class EvaluateBatchRequest(BaseModel):
+    """Body of ``POST /evaluate-batch``.
+
+    The DVA API posts the full VLA document (as retrieved from the VLA
+    Manager API) and the original data. The processing service iterates
+    over ``vla.schema[*].quality[*]`` and returns one
+    :class:`EvaluationResult` per requirement — the "array of (requirement,
+    result) pairs" produced by veracity checks in the synchronous
+    attestation flow.
+    """
+
+    vla: dict[str, Any]
+    data: Any
+
+
 class EvaluationResult(BaseModel):
     engine: Optional[QualityEngine]
     timestamp: datetime
     success: bool
     details: Optional[str] = None
     error: Optional[str] = None
-
-
-class AoVRequest(BaseModel):
-    id: str
-    exchangeID: str
-    contract: dict[str, Any]
-    data: Any
-    attesterID: str
-
-
-class AoVGenerationRequestPayload(BaseModel):
-    success: bool
-    results: list[EvaluationResult]
-
-
-class AoVGenerationRequest(BaseModel):
-    request_id: str
-    exchange_id: str
-    contract_id: str
-    subject: str
-    issuer_id: str
-    payload: AoVGenerationRequestPayload
-    target: str
 
 
 class JQResult(BaseModel):

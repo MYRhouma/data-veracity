@@ -81,12 +81,13 @@ def eval_requirement_schema(data: Any, requirement: Requirement) -> EvaluationRe
 def eval_requirement_jq(data: Any, requirement: Requirement) -> EvaluationResult:
     logger.debug("Evaluating JQ expression requirement")
     results: list[JQResult] = jq.eval_expression(data, requirement.implementation)
+    success = all(r.success for r in results)
     logger.debug(
-        f"JQ expression evaluation success: {results.success}", details=results
+        f"JQ expression evaluation success: {success}", details=results
     )
     return EvaluationResult(
         engine=requirement.engine,
         timestamp=now(),
-        success=all(r.success for r in results),
-        details=json.dumps(results),
+        success=success,
+        details=json.dumps([r.model_dump() for r in results]),
     )
