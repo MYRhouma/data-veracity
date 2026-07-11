@@ -2,27 +2,15 @@ from os import environ as env
 
 from pydantic import BaseModel
 
-# RabbitMQ queue name for AoV requests
-QUEUE_NAME = "ATTESTATION_REQUESTS"
-
-# RabbitMQ server hostname
-RABBITMQ_HOST = env.get("DVA_RABBITMQ_HOST", default="localhost")
-
-# Postgres connection data
-PG_URL = env.get("DVA_POSTGRES_URL", default="postgresql://localhost:5432")
-PG_USER = env.get("DVA_POSTGRES_USER", default="postgres")
-PG_PASS = env.get("DVA_POSTGRES_PASSWORD", default="postgres")
-
 # Log level (must be supported by structlog)
 LOG_LEVEL = env.get("DVA_LOG_LEVEL", default="warn")
 
-# ACA-Py Controller URL
-ACA_PY_CONTROLLER_URL = env.get("DVA_ACA_PY_CONTROLLER_URL", default="localhost:8050")
-
-# AoV issuer mode: "acapy" (default, legacy) forwards to ACA-Py /generate_aov;
-# "jws" skips the forward — the dva-api sync /attestation endpoint already
-# returned the signed JWS to the caller.
-DVA_ISSUER = env.get("DVA_ISSUER", default="acapy")
+# Postgres connection data — only used by the legacy async path
+# (handle_aov_request). The new sync path (handle_eval_batch_request)
+# is stateless and does not touch the DB.
+PG_URL = env.get("DVA_POSTGRES_URL", default="postgresql://localhost:5432")
+PG_USER = env.get("DVA_POSTGRES_USER", default="postgres")
+PG_PASS = env.get("DVA_POSTGRES_PASSWORD", default="postgres")
 
 
 class Configuration(BaseModel):
