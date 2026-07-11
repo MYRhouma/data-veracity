@@ -16,7 +16,10 @@ fun Application.configureDatabases() {
         password = pgPass,
     )
 
+    // dva-api only owns the request_logs and verif_request_logs tables
+    // (audit trail). VLAs, templates, and the did:key whitelist are
+    // owned by other services (vla-manager-api and dva-vc-manager).
     transaction {
-        create(TemplatesTable, RequestLogsTable, VerifRequestLogsTable, VLAsTable, DidKeyWhitelistTable)
+        create(RequestLogsTable, VerifRequestLogsTable)
     }
 }

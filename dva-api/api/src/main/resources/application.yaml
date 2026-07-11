@@ -19,6 +19,14 @@ rabbitmq:
 processing:
   url: "$DVA_PROCESSING_URL:http://localhost:5000"
 
+# VLA MANAGER API at the Data Intermediary — GET /vla/{id}
+vlaManager:
+  url: "$DVA_VLA_MANAGER_URL:http://localhost:8000"
+
+# DVA VC MANAGER at the Participant — POST /aov/issue, /aov/verify
+vcManager:
+  url: "$DVA_VC_MANAGER_URL:http://localhost:8000"
+
 acaPy:
   agent:
     url: "$DVA_ACA_PY_AGENT_URL:http://localhost:8030"
@@ -28,5 +36,3 @@ acaPy:
 dva:
   signingKeyPath: "$DVA_SIGNING_KEY_PATH:./dva-signing-key.pem"
   apiKey: "$DVA_API_KEY:"
-  attestation:
-    mode: "$DVA_ATTESTATION_MODE:sync"

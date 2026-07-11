@@ -1,53 +1,25 @@
 package hu.bme.mit.ftsrg.dva.api.route
 
-import com.rabbitmq.client.Connection
-import com.rabbitmq.client.MessageProperties
 import hu.bme.mit.ftsrg.dva.api.AoVResponseDTO
 import hu.bme.mit.ftsrg.dva.api.AttestationVerifySyncRequestDTO
 import hu.bme.mit.ftsrg.dva.api.AttestationVerifySyncResponseDTO
 import hu.bme.mit.ftsrg.dva.api.EvaluationResultDTO
-import hu.bme.mit.ftsrg.dva.api.jws.AovClaims
-import hu.bme.mit.ftsrg.dva.api.jws.Ed25519PrivateKey
-import hu.bme.mit.ftsrg.dva.api.jws.SigningKeyStore
-import hu.bme.mit.ftsrg.dva.api.jws.didKeyToEd25519PublicKey
-import hu.bme.mit.ftsrg.dva.api.jws.signEd25519
-import hu.bme.mit.ftsrg.dva.api.jws.verifyEd25519
 import hu.bme.mit.ftsrg.dva.api.resource.Attestations
-import hu.bme.mit.ftsrg.dva.dto.IDDTO
-import hu.bme.mit.ftsrg.dva.dto.aov.ACAPyPresentationRequestDTO
-import hu.bme.mit.ftsrg.dva.dto.aov.ACAPyPresentationResponseDTO
 import hu.bme.mit.ftsrg.dva.dto.aov.AttestationRequestDTO
-import hu.bme.mit.ftsrg.dva.dto.aov.AttestationVerificationRequestDTO
-import hu.bme.mit.ftsrg.dva.evaluation.Evaluate
-import hu.bme.mit.ftsrg.dva.jws.WhitelistRepo
-import hu.bme.mit.ftsrg.dva.vla.VLARepo
 import hu.bme.mit.ftsrg.dva.log.*
-import hu.bme.mit.ftsrg.odcs.DataQuality
-import io.github.viartemev.rabbitmq.channel.confirmChannel
-import io.github.viartemev.rabbitmq.channel.publish
-import io.github.viartemev.rabbitmq.publisher.OutboundMessage
-import io.github.viartemev.rabbitmq.queue.QueueSpecification
-import io.github.viartemev.rabbitmq.queue.declareQueue
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.http.HttpStatusCode.Companion.Accepted
-import io.ktor.http.HttpStatusCode.Companion.Forbidden
 import io.ktor.http.HttpStatusCode.Companion.OK
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.resources.post
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 import org.koin.ktor.ext.inject
 import java.util.*
 import kotlin.time.Clock
@@ -55,53 +27,81 @@ import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+// --- DTOs for the new inter-service calls ---
+
+@Serializable
+data class EvaluateBatchRequest(
+    val vla: JsonObject,
+    val data: JsonElement,
+)
+
+@Serializable
+data class AovIssueRequest(
+    val vcId: String,
+    val validSince: String,
+    val subject: String,
+    val issuerId: String,
+    val recordId: String,
+    val contractId: String,
+    val dataExchangeId: String,
+    val payload: String,
+    val evaluationResults: List<EvaluationResultDTO>,
+)
+
+@Serializable
+data class AovIssueResponse(
+    val jws: String,
+    val vcId: String,
+    val issuerDidKey: String,
+    val vcIssuedDate: String,
+)
+
+/**
+ * Slim orchestrator for the synchronous attestation flow.
+ *
+ * Initiation: PDC POSTs /attestation with data + vlaId.
+ * VLA Resolution: DVA API GETs /vla/{id} from the VLA MANAGER API at
+ *                 the Data Intermediary.
+ * Veracity Checks: DVA API POSTs /evaluate-batch to DVA PROCESSING with
+ *                   the full VLA + data; gets back an array of
+ *                   (requirement, result) pairs.
+ * Credential Issuance: DVA API POSTs /aov/issue to DVA VC MANAGER with
+ *                       the claims + evaluation results; gets back the
+ *                       JWS.
+ * Synchronous Return: DVA API returns the AoV JWS synchronously to the
+ *                      PDC.
+ *
+ * The verify endpoint delegates body-and-all to the DVA VC MANAGER's
+ * /aov/verify — the whitelist and JWS verification live there.
+ */
 @OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
-fun Application.aovRoutes(
-    attestationMode: String =
-        environment.config.propertyOrNull("dva.attestation.mode")?.getString() ?: "sync",
-) {
-    val rmqConnection by inject<Connection>()
+fun Application.aovRoutes() {
     val reqsRepo by inject<ReqestLogRepo>()
-    val verifsRepo by inject<VerifRequestLogRepo>()
     val httpClient by inject<HttpClient>()
-    val keyStore by inject<SigningKeyStore>()
-    val whitelistRepo by inject<WhitelistRepo>()
-    val vlaRepo by inject<VLARepo>()
 
     val processingURL =
         environment.config.propertyOrNull("processing.url")?.getString() ?: "http://localhost:5000"
+    val vlaManagerURL =
+        environment.config.propertyOrNull("vlaManager.url")?.getString() ?: "http://localhost:8000"
+    val vcManagerURL =
+        environment.config.propertyOrNull("vcManager.url")?.getString() ?: "http://localhost:8000"
 
     routing {
         post<Attestations> {
             val request: AttestationRequestDTO = call.receive()
-
             val id = UUID.randomUUID().toString()
             val requestWithID: AttestationRequestDTO = request.copy(id = id)
-
-            if (attestationMode == "async") {
-                handleAsyncAttestation(requestWithID, id, rmqConnection, reqsRepo)
-                call.respond(status = Accepted, message = IDDTO(id))
-                return@post
-            }
-
-            // --- SYNC MODE ---
             val now = Clock.System.now()
             val data = (requestWithID.data as? JsonObject) ?: JsonObject(emptyMap())
 
-            // 1. Evaluate each requirement in contract.vla.schema[*].quality[*]
-            val results = mutableListOf<EvaluationResultDTO>()
-
-            // Look up VLA: prefer vlaId from the request (real PDC flow),
-            // fall back to contract["vla"] (Karate test compatibility)
+            // --- VLA Resolution via VLA MANAGER API ---
             val rawVlaId = requestWithID.vlaId
-            val vla: JsonObject? = if (!rawVlaId.isNullOrBlank()) {
-                // Validate UUID format before querying; a malformed vlaId should be
-                // a clear 400 Bad Request — not silently treated as 'VLA not found'.
+            val vla: JsonObject = if (!rawVlaId.isNullOrBlank()) {
                 val parsedUuid = try {
                     Uuid.parse(rawVlaId)
                 } catch (e: IllegalArgumentException) {
                     call.respond(
-                        io.ktor.http.HttpStatusCode.BadRequest,
+                        HttpStatusCode.BadRequest,
                         hu.bme.mit.ftsrg.dva.dto.ErrDTO(
                             type = "BAD_REQUEST",
                             title = "invalid vlaId — expected a UUID v4, got: $rawVlaId",
@@ -109,46 +109,61 @@ fun Application.aovRoutes(
                     )
                     return@post
                 }
-                vlaRepo.byID(parsedUuid)
+                try {
+                    val resp: HttpResponse = httpClient.get("$vlaManagerURL/vla/${parsedUuid}") {
+                        accept(ContentType.Application.Json)
+                    }
+                    if (resp.status == HttpStatusCode.NotFound) {
+                        call.respond(
+                            HttpStatusCode.NotFound,
+                            hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                                type = "NOT_FOUND",
+                                title = "VLA $parsedUuid not found at the Data Intermediary",
+                            )
+                        )
+                        return@post
+                    }
+                    resp.body<JsonObject>()
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.BadGateway,
+                        hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                            type = "BAD_GATEWAY",
+                            title = "VLA MANAGER API unreachable: ${e.message}",
+                        )
+                    )
+                    return@post
+                }
             } else {
-                requestWithID.contract["vla"]?.jsonObject
+                requestWithID.contract["vla"]?.jsonObject ?: JsonObject(emptyMap())
             }
 
-            val schema: JsonArray? = vla?.get("schema")?.jsonArray
-            if (schema != null) {
-                for (schemaItem in schema) {
-                    val quality = schemaItem.jsonObject["quality"]?.jsonArray ?: continue
-                    for (requirement in quality) {
-                        val reqObj = requirement.jsonObject
-                        val engine = reqObj["engine"]?.jsonPrimitive?.contentOrNull
-                        val implementation = reqObj["implementation"]?.jsonPrimitive?.contentOrNull
-                        if (engine == null || implementation == null) continue
-
-                        val evaluateRequest = Evaluate(
-                            requirement = DataQuality(engine = engine, implementation = implementation),
-                            data = data,
-                        )
-                        val resp: HttpResponse = httpClient.post("$processingURL/evaluate") {
-                            contentType(ContentType.Application.Json)
-                            setBody(evaluateRequest)
-                        }
-                        val result: EvaluationResultDTO = resp.body()
-                        results.add(result)
-                    }
+            // --- Veracity Checks via DVA PROCESSING /evaluate-batch ---
+            val results: List<EvaluationResultDTO> = try {
+                val resp: HttpResponse = httpClient.post("$processingURL/evaluate-batch") {
+                    contentType(ContentType.Application.Json)
+                    setBody(EvaluateBatchRequest(vla = vla, data = data))
                 }
+                resp.body<List<EvaluationResultDTO>>()
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadGateway,
+                    hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                        type = "BAD_GATEWAY",
+                        title = "DVA PROCESSING unreachable: ${e.message}",
+                    )
+                )
+                return@post
             }
 
             val allSuccess = results.isNotEmpty() && results.all { it.success }
 
-            // 2. Sign JWS if all evaluations pass
+            // --- Credential Issuance via DVA VC MANAGER /aov/issue ---
             val vcId = Uuid.random().toString()
             var issuerDidKey: String? = null
             var jws: String? = null
+            var vcIssuedDate: String? = null
 
-            // Helpers: read contract.id (Karate test shape) with _id fallback
-            // (PDC BilateralResponseType / ContractResponseType use _id), and
-            // dataProvider (BilateralResponseType) with no PDC equivalent on
-            // ContractResponseType (falls back to attesterID, which is correct).
             val contractId = requestWithID.contract["id"]?.jsonPrimitive?.contentOrNull
                 ?: requestWithID.contract["_id"]?.jsonPrimitive?.contentOrNull
                 ?: ""
@@ -156,25 +171,37 @@ fun Application.aovRoutes(
                 ?: requestWithID.attesterID
 
             if (allSuccess) {
-                // Single call: load (or generate) the keypair, then derive the
-                // issuer did:key from the cached public key.
-                val pair = keyStore.loadOrGenerate()
-                val issuerDidKeyLocal = keyStore.issuerDidKey()
-                issuerDidKey = issuerDidKeyLocal
-                val claims = AovClaims(
-                    vcId = vcId,
-                    validSince = now.toString(),
-                    subject = dataProvider,
-                    issuerId = requestWithID.attesterID,
-                    recordId = requestWithID.id!!,
-                    contractId = contractId,
-                    dataExchangeId = requestWithID.exchangeID,
-                    payload = requestWithID.data.toString(),
-                )
-                jws = signEd25519(claims, pair.private as Ed25519PrivateKey, issuerDidKeyLocal)
+                try {
+                    val issueResp: AovIssueResponse = httpClient.post("$vcManagerURL/aov/issue") {
+                        contentType(ContentType.Application.Json)
+                        setBody(AovIssueRequest(
+                            vcId = vcId,
+                            validSince = now.toString(),
+                            subject = dataProvider,
+                            issuerId = requestWithID.attesterID,
+                            recordId = requestWithID.id!!,
+                            contractId = contractId,
+                            dataExchangeId = requestWithID.exchangeID,
+                            payload = requestWithID.data.toString(),
+                            evaluationResults = results,
+                        ))
+                    }.body()
+                    jws = issueResp.jws
+                    issuerDidKey = issueResp.issuerDidKey
+                    vcIssuedDate = issueResp.vcIssuedDate
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.BadGateway,
+                        hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                            type = "BAD_GATEWAY",
+                            title = "DVA VC MANAGER unreachable: ${e.message}",
+                        )
+                    )
+                    return@post
+                }
             }
 
-            // 3. Persist RequestLog with all fields
+            // --- Audit: persist RequestLog (dva-api owns the audit trail) ---
             val vlaIdForLog = requestWithID.vlaId
                 ?: vla?.get("id")?.jsonPrimitive?.contentOrNull
             reqsRepo.add(
@@ -183,8 +210,6 @@ fun Application.aovRoutes(
                     requestID = Uuid.parse(requestWithID.id!!),
                     exchangeID = requestWithID.exchangeID,
                     contractID = contractId,
-                    // Store null when no vlaId is available rather than a sentinel zero-UUID,
-                    // which would pollute the log and break per-VLA queries.
                     vlaID = vlaIdForLog?.let {
                         try { Uuid.parse(it) } catch (_: IllegalArgumentException) { null }
                     },
@@ -199,7 +224,7 @@ fun Application.aovRoutes(
                 )
             )
 
-            // 4. Build and return response
+            // --- Synchronous return to PDC ---
             call.respond(
                 OK,
                 AoVResponseDTO(
@@ -209,195 +234,29 @@ fun Application.aovRoutes(
                     vcId = if (allSuccess) vcId else null,
                     evaluationPassing = allSuccess,
                     evaluationResults = results,
-                    vcIssuedDate = if (allSuccess) now.toString() else null,
+                    vcIssuedDate = vcIssuedDate,
                 )
             )
         }
 
+        // --- Verify: delegate to DVA VC MANAGER /aov/verify ---
         post<Attestations.Verify> {
-            if (attestationMode == "async") {
-                handleAsyncVerify(call, httpClient, verifsRepo)
-                return@post
-            }
-
-            // --- SYNC MODE ---
             val request: AttestationVerifySyncRequestDTO = call.receive()
-
-            // Whitelist check (fail-closed):
-            // - Empty whitelist → reject. An empty list means "not set up yet",
-            //   not "accept everyone". This prevents a bypass where an attacker
-            //   simply calls the API before any whitelist entry has been added.
-            // - Non-empty → the attesterDidKey must appear in the list.
-            val whitelist = whitelistRepo.all()
-            if (whitelist.isEmpty()) {
-                call.respond(
-                    Forbidden,
-                    AttestationVerifySyncResponseDTO(
-                        verified = false,
-                        reason = "whitelist is not configured; verification is disabled",
-                        payload = null,
-                    )
-                )
-                return@post
-            }
-            val whitelistEntry = whitelist.find { it.didKey == request.attesterDidKey }
-            if (whitelistEntry == null) {
-                call.respond(
-                    Forbidden,
-                    AttestationVerifySyncResponseDTO(
-                        verified = false,
-                        reason = "attester not whitelisted",
-                        payload = null,
-                    )
-                )
-                return@post
-            }
-
-            // Derive the public key from the whitelist record — NOT from the
-            // caller-supplied attesterDidKey. Trusting the caller to supply the
-            // verification key would let an attacker pass any JWS they control
-            // by presenting a matching did:key they own.
-            val publicKey = try {
-                didKeyToEd25519PublicKey(whitelistEntry.didKey)
+            try {
+                val resp: AttestationVerifySyncResponseDTO = httpClient.post("$vcManagerURL/aov/verify") {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                }.body()
+                call.respond(OK, resp)
             } catch (e: Exception) {
                 call.respond(
-                    OK,
-                    AttestationVerifySyncResponseDTO(
-                        verified = false,
-                        reason = "whitelist entry contains invalid did:key: ${e.message}",
-                        payload = null,
+                    HttpStatusCode.BadGateway,
+                    hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                        type = "BAD_GATEWAY",
+                        title = "DVA VC MANAGER unreachable: ${e.message}",
                     )
                 )
-                return@post
             }
-
-            // Verify the JWS signature
-            val verified = try {
-                verifyEd25519(request.jws, publicKey)
-            } catch (e: Exception) {
-                false
-            }
-
-            if (!verified) {
-                call.respond(
-                    OK,
-                    AttestationVerifySyncResponseDTO(
-                        verified = false,
-                        reason = "signature mismatch",
-                        payload = null,
-                    )
-                )
-                return@post
-            }
-
-            // Decode the JWS payload (middle segment, base64url)
-            val payload: JsonObject? = try {
-                val parts = request.jws.split(".")
-                val payloadBytes = java.util.Base64.getUrlDecoder().decode(parts[1])
-                Json.decodeFromString(JsonObject.serializer(), String(payloadBytes, Charsets.UTF_8))
-            } catch (e: Exception) {
-                null
-            }
-
-            call.respond(
-                OK,
-                AttestationVerifySyncResponseDTO(
-                    verified = true,
-                    reason = null,
-                    payload = payload,
-                )
-            )
         }
     }
 }
-
-@OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
-private suspend fun handleAsyncAttestation(
-    requestWithID: AttestationRequestDTO,
-    id: String,
-    rmqConnection: Connection,
-    reqsRepo: ReqestLogRepo,
-) {
-    reqsRepo.add(
-        RequestLogNew(
-            type = RequestType.ATTESTATION_REQUEST,
-            requestID = Uuid.parse(requestWithID.id!!),
-            exchangeID = requestWithID.exchangeID,
-            contractID = requestWithID.contract["id"].toString(),
-            // Extract the VLA id from the embedded contract JSON, if present.
-            // Use null-safe extraction: missing or malformed id stores null rather
-            // than throwing NullPointerException or IllegalArgumentException.
-            vlaID = requestWithID.contract["vla"]
-                ?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
-                ?.let { runCatching { Uuid.parse(it) }.getOrNull() },
-            data = requestWithID.data,
-            attesterID = requestWithID.attesterID,
-            receivedDate = Clock.System.now(),
-        )
-    )
-
-    rmqConnection.confirmChannel {
-        declareQueue(QueueSpecification("ATTESTATION_REQUESTS", durable = true))
-        publish {
-            publishWithConfirm(createMessage(Json.encodeToString(requestWithID)))
-        }
-    }
-}
-
-@OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
-private suspend fun handleAsyncVerify(
-    call: ApplicationCall,
-    httpClient: HttpClient,
-    verifsRepo: VerifRequestLogRepo,
-) {
-    val request: AttestationVerificationRequestDTO = call.receive()
-
-    val id = UUID.randomUUID().toString()
-    val requestWithID: AttestationVerificationRequestDTO = request.copy(id = id)
-
-    val verifLogEntity = verifsRepo.add(
-        VerifRequestLogNew(
-            exchangeID = requestWithID.exchangeID,
-            contractID = requestWithID.contractID,
-            attesterAgentURL = requestWithID.attesterAgentURL,
-            attesterAgentLabel = requestWithID.attesterAgentLabel,
-            receivedDate = Clock.System.now(),
-        )
-    )
-
-    val resp: HttpResponse =
-        httpClient.post(
-            "${
-                call.application.environment.config.property("acaPy.controller.url").getString()
-            }/request_presentation_from_peer"
-        ) {
-            contentType(ContentType.Application.Json)
-            setBody(
-                ACAPyPresentationRequestDTO(
-                    dataExchangeId = requestWithID.exchangeID,
-                    attesterAgentURL = requestWithID.attesterAgentURL,
-                    attesterLabel = requestWithID.attesterAgentLabel
-                )
-            )
-        }
-    val acaPyResp: ACAPyPresentationResponseDTO = resp.body()
-
-    if (verifLogEntity != null) {
-        verifsRepo.update(
-            VerifRequestLogPatch(
-                id = verifLogEntity.id,
-                presentationRequestData = acaPyResp.aov,
-            )
-        )
-    }
-
-    call.respond(status = resp.status, message = acaPyResp)
-}
-
-private fun createMessage(body: String): OutboundMessage =
-    OutboundMessage(
-        exchange = "",
-        routingKey = "ATTESTATION_REQUESTS",
-        properties = MessageProperties.PERSISTENT_BASIC,
-        msg = body
-    )
