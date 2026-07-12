@@ -553,114 +553,139 @@ For [PoVs,](#g_pov) the [_proof_](#g_proof) is a crucial element of the credenti
 
 ### High-Level Architecture
 
-![High Level Architecture](./arch.svg)
+The DVA building block is organized around a strict **one-container-per-role**
+separation. Two tiers — **Participant** (provider and consumer) and **Data
+Intermediary** — host a total of six distinct services.
+
+```
+   PARTICIPANT (provider)                         DATA INTERMEDIARY
+   ─────────────────────────                       ─────────────────────────
+   pdc                                             vla-manager-api
+   dva-api            (9091)                          (9099, owns VLA Postgres)
+   dva-vc-manager     (8001)                       dva-processing-vla-manager
+   dva-processing                                      (--no-rmq, VLA-test only)
+   postgres           (5401, RequestLog)          postgres-vla-manager (5409)
+   dva-dashboard      (3011)
+
+   PARTICIPANT (consumer) — mirror
+```
+
+| Role | Component | Location | Owns |
+|---|---|---|---|
+| PDC | `dataspace-connector` | Participant | Triggers attestation; sends `data + vlaId`; verifies returned JWS |
+| DVA API | `dva-api` (Ktor) | Participant | HTTP gateway only — orchestrates VLA resolution, evaluation, VC issuance; persists RequestLog |
+| DVA VC MANAGER | `dva-vc-manager` (FastAPI/PyNaCl) | Participant | Ed25519 signing key; W3C VC 2.0 JWS issuance & verification; did:key whitelist |
+| DVA PROCESSING | `dva-processing` (FastAPI) | Participant | `POST /evaluate-batch` — stateless veracity checks (jq, JSON Schema, Great Expectations) |
+| VLA MANAGER API | `vla-manager-api` (FastAPI) | Data Intermediary | Sole owner of VLAs — `GET /vla/{id}`, `POST /vla`, `DELETE /vla` |
+| DVA PROCESSING (VLA-test) | `dva-processing-vla-manager` (FastAPI) | Data Intermediary | `POST /evaluate` only — used *while authoring* VLAs, never during attestation |
 
 ### Internal Software Architecture
 
-<!-- Abusing Mermaid's flowcharts... -->
-
 ```mermaid
 ---
-title: Data Veracity Assurance High-Level Architecture
+title: DVA — Clean Separation Topology (one container per role)
 ---
 
 graph LR
-  apip>"fa:fa-plug\n Data Provider API"]:::API
-  apic>"fa:fa-plug\n Data Consumer API"]:::API
-  apio>"fa:fa-plug\n Orchestrator API"]:::API
-  apim>"fa:fa-plug\n Contract API"]:::API
-  att["fa:fa-stamp\n Attestation Component"]:::Component
-  attloc["Local Attestation"]:::Misc
-  attext["External Attestation"]:::Misc
-  vla["fa:fa-file\n VLA Component"]:::Component
-  prov["fa:fa-file-circle-check\n Proving Component"]:::Component
-  verif["fa:fa-check-double\n Verification Component"]:::Component
-  gen["Built-in Proof Generator"]:::Misc
-  gen_ext["External Proof Generator"]:::Misc
-  ver["Proof Verifier"]:::Misc
+  subgraph Participant[Participant — Provider]
+    pdc["PDC\n(dataspace-connector)"]
+    dvaapi["DVA API\n(Ktor — slim gateway)"]
+    vcman["DVA VC MANAGER\n(FastAPI — PyNaCl JWS)"]
+    proc["DVA PROCESSING\n(FastAPI — evaluate-batch)"]
+    pg1[("Postgres\nRequestLog")]
+  end
 
-  apio -- manage templates -->vla
-  apim -- get templates -->vla
-  apip -- create AoV --> att
-  apip -- create PoV --> prov
-  apic -- verify AoV --> att
-  apic -- verify PoV --> prov
-  apic -- check data compliance --> verif
-  att --> attloc & attext
-  prov --> gen & gen_ext & ver
+  subgraph Intermediary[Data Intermediary]
+    vlaapi["VLA MANAGER API\n(FastAPI — owns VLAs)"]
+    proc2["DVA PROCESSING\n(--no-rmq, VLA-test only)"]
+    pg2[("Postgres\nVLAs")]
+  end
 
-  classDef default color:#000
-  classDef API fill:lightgreen
-  classDef Controller fill:cyan
-  classDef Component fill:orange
-  classDef Misc fill:greeen
+  pdc -- "Initiation:\nPOST /attestation\n(data + vlaId)" --> dvaapi
+  dvaapi -- "VLA Resolution:\nGET /vla/{id}" --> vlaapi
+  vlaapi -- "return full VLA" --> dvaapi
+  dvaapi -- "Veracity Checks:\nPOST /evaluate-batch\n(vla + data)" --> proc
+  proc -- "return array of\n(req, result) pairs" --> dvaapi
+  dvaapi -- "Credential Issuance:\nPOST /aov/issue\n(claims + results)" --> vcman
+  vcman -- "return JWS" --> dvaapi
+  dvaapi -- "Synchronous Return:\nreturn AoV JWS\n(synchronous)" --> pdc
+
+  vcman --> pg1
+  vlaapi --> pg2
+  vlaapi -- "VLA-test only\n(POST /evaluate)" --> proc2
+
+  classDef participant fill:#a4dd00,stroke:#000,color:#000
+  classDef intermediary fill:#fcdc00,stroke:#000,color:#000
+  classDef store fill:#73d8ff,stroke:#000,color:#000
+  class pdc,dvaapi,vcman,proc participant
+  class vlaapi,proc2 intermediary
+  class pg1,pg2 store
 ```
 
 
 ## Dynamic Behaviour
 
-The sequence diagrams below describe possible DVA additions to the basic [Connector][Dataspace Connector] flows.
+### Synchronous attestation flow
+
+The DVA API is a **pure HTTP orchestrator** — it delegates VLA resolution,
+evaluation, and credential issuance to three separate services and returns
+the completed AoV JWS synchronously to the PDC. No RabbitMQ, no async queue,
+no inlined cryptographic operations.
 
 ```mermaid
 ---
-title: Data Exchange with Attestation or Proof of Veracity (AoV/PoV)
+title: Synchronous Attestation of Veracity
 ---
 
 sequenceDiagram
-    participant c as Consumer PDC
+    participant pdc as PDC
+    participant api as DVA API
+    participant vla as VLA MANAGER API<br/>(Data Intermediary)
+    participant proc as DVA PROCESSING
+    participant vc as DVA VC MANAGER
 
-    box rgba(50, 100, 20, .5) Data Provider
-      participant p as Provider PDC
-      participant dva as Provider DVA
-    end
-    
-    participant ctr as Contract Manager
+    Note over pdc,vc: Initiation
+    pdc->>api: POST /attestation<br/>{data, vlaId, exchangeID, contract, attesterID}
 
-    box rgba(150, 50, 50, .5) 3rd Party DVA Organization
-      participant pdc3 as PDC X 
-      participant dva3 as 3rd Party DVA
-    end
-    
-    box rgba(100, 100, 130, .5) Organizagion/Individual A
-      participant pdca as PDC A
-      participant dvaa as DVA A
-      participant svca as Service A
-    end
-    
-    box rgba(100, 100, 130, .5) Organizagion/Individual B
-      participant pdcb as PDC B
-      participant dvab as DVA B
-      participant svcb as Service B
-    end
+    Note over api,vla: VLA Resolution
+    api->>vla: GET /vla/{vlaId}
+    vla-->>api: full VLA document (ODCS JSON)
 
-    c ->> ctr : Request data processing chain
-    ctr --) c: Return processing sequence
+    Note over api,proc: Veracity Checks
+    api->>proc: POST /evaluate-batch {vla, data}
+    proc-->>api: array of {requirement, result} pairs
 
-    c -) p: Initiate data transaction
+    Note over api,vc: Credential Issuance
+    api->>vc: POST /aov/issue {claims, evaluationResults}
+    Note right of vc: Ed25519 sign via PyNaCl<br/>(no hand-rolled crypto)
+    vc-->>api: {jws, vcId, issuerDidKey, vcIssuedDate}
 
-    alt self-attestation or self-generated proof
-        c ->> dva: Create self-AoV or Generate PoV
-        dva --) c: Return AoV/PoV
-    else third-party attestation or proving
-        c ->> pdc3: Request AoV/PoV
-        pdc3 ->> dva3: Create AoV/PoV
-        dva3 --) pdc3: Return AoV/PoV
-        pdc3 --) c: Return AoV/PoV
-    end
+    Note over pdc,api: Synchronous Return
+    api-->>pdc: 200 OK {jws, vcId, issuerDidKey,<br/>evaluationPassing, evaluationResults, vcIssuedDate}
+```
 
-    p -) pdca: Send raw data (+ AoV/PoV) for processing
-    pdca -) dvaa: Verify AoV/PoV
-    pdca ->> svca: Process data
-    svca --) pdca: Return processed data
-    pdca --) c: Notify progress
+### Consumer-side verification flow
 
-    pdca -) pdcb: Send data for next processing
-    pdcb -) dvab: Verify AoV/PoV
-    pdcb ->> svcb: Process data
-    svcb --) pdcb: Return processed data
-    pdcb -) c: Notify progress
+When the consumer PDC receives data with an AoV JWS, it delegates
+verification to its own DVA VC MANAGER via the DVA API. The DVA VC
+MANAGER owns the `did:key` whitelist and is **fail-closed**: it rejects
+all verifications when the whitelist is empty.
 
-    pdcb --) c: Send final processed data
+```mermaid
+---
+title: Consumer-side AoV JWS Verification
+---
+
+sequenceDiagram
+    participant pdc as Consumer PDC
+    participant api as DVA API (consumer)
+    participant vc as DVA VC MANAGER (consumer)
+
+    pdc->>api: POST /attestation/verify {jws, attesterDidKey}
+    api->>vc: POST /aov/verify {jws, attesterDidKey}
+    Note right of vc: 1. Whitelist non-empty?<br/>(fail-closed if empty)<br/>2. Attester whitelisted?<br/>3. JWS signature valid?
+    vc-->>api: {verified, reason, payload}
+    api-->>pdc: 200 OK {verified, reason, payload}
 ```
 
 
@@ -695,23 +720,34 @@ Furthermore, DVA will not be prepared to handle extreme workloads and will likel
 
 ## Third-Party Components & Licenses
 
-For [verifiable-credentials-related](#g_vc) operations, DVA will rely on:
-* [Credo](https://credo.js.org/) ([Apache 2.0])
-* [walt.id](https://walt.id/) ([Apache 2.0])
+For [verifiable-credentials-related](#g_vc) operations, DVA relies on:
+* [PyNaCl](https://pynacl.cr.ypots.org/) ([Apache 2.0]) — libsodium bindings for Ed25519 signing/verification, used by `dva-vc-manager`
+* [base58](https://github.com/keis/base58) ([MIT]) — did:key multibase encoding, used by `dva-vc-manager`
+* [Credo](https://credo.js.org/) ([Apache 2.0]) — future wallet integration
 
-For performing veracity checks, DVA will use:
+For performing veracity checks, DVA uses:
 * [Great Expectations](https://greatexpectations.io/) ([Apache 2.0])
+* [jq](https://stedolan.github.io/jq/) ([MIT])
+* [jsonschema](https://python-jsonschema.readthedocs.io/) ([MIT])
 
-Other potential, less important libraries planned to be used by the implementation:
-* [toml4j](https://github.com/mwanji/toml4j) for [TOML](https://toml.io/en/) serialization ([MIT])
-* [GenSON](https://github.com/wolverdude/GenSON) for [JSON](https://www.json.org/) serialization ([MIT])
-* [snakeyaml](https://github.com/snakeyaml/snakeyaml) for [YAML](https://yaml.org/) serialization ([Apache 2.0])
-* [ktor](https://github.com/ktorio/ktor) for the REST API ([Apache 2.0])
+REST API frameworks:
+* [FastAPI](https://fastapi.tiangolo.com/) ([MIT]) — `vla-manager-api`, `dva-vc-manager`, `dva-processing`
+* [Ktor](https://github.com/ktorio/ktor) ([Apache 2.0]) — `dva-api` (Kotlin)
+* [asyncpg](https://github.com/MagicStack/asyncpg) ([Apache 2.0]) — PostgreSQL async driver for the Python services
 
 ## Implementation Details
 
-The core functionality of DVA will be implemented over the JVM in Java/Kotlin.
-Some [verifiable-credential](#g_vc)-related functionality will be implemented in TypeScript.
+The DVA building block is implemented as **six cooperating services** across two
+tiers (Participant and Data Intermediary). The language split is:
+
+* **Kotlin/Ktor** — `dva-api` (slim HTTP orchestrator; only this service touches the JVM)
+* **Python/FastAPI** — `vla-manager-api` (VLA ownership), `dva-vc-manager` (Ed25519 JWS via PyNaCl), `dva-processing` (veracity checks)
+* **TypeScript/Express** — the Prometheus-X Dataspace Connector (PDC) integration (`dataspace-connector`)
+
+**OpenAPI specifications**: each service exposes its own `/openapi.json` at
+runtime (FastAPI auto-generates for the Python services; Ktor serves the
+hand-maintained `docs/spec/openapi.yaml`). The aggregated view is documented
+in `docs/spec/openapi.yaml`.
 
 
 ## OpenAPI Specification

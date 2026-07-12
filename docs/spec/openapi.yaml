@@ -5,18 +5,36 @@ info:
   description: |-
     This is the API specification of the
     [data veracity assurance building block (DVA)](https://github.com/Prometheus-X-association/data-veracity).
+
+    The DVA is organized as six cooperating services — each owns exactly one
+    role. The `servers` block below lists all of them; each endpoint is tagged
+    with the owning service.
+
+    **Topology:**
+
+    | Location | Service | Role |
+    |---|---|---|
+    | Participant | `dva-api` (Kotlin/Ktor) | HTTP gateway — orchestrates the synchronous attestation flow (VLA resolution, evaluation, credential issuance) |
+    | Participant | `dva-vc-manager` (Python/FastAPI) | Ed25519 JWS issuance & verification via PyNaCl; owns the did:key whitelist |
+    | Participant | `dva-processing` (Python/FastAPI) | Stateless veracity checks (`POST /evaluate-batch`) |
+    | Data Intermediary | `vla-manager-api` (Python/FastAPI) | Sole owner of VLAs |
+    | Data Intermediary | `dva-processing-vla-manager` (Python/FastAPI) | `POST /evaluate` only — used while authoring VLAs, never during attestation |
   contact:
     email: bpeter@edu.bme.hu
-  version: 0.5.1
+  version: 0.6.0
 servers:
-  - url: http://localhost:9099
-    description: Test environment – VLA manager service
   - url: http://localhost:9091
-    description: Test environment – provider side
+    description: DVA API — Test environment, provider side
   - url: http://localhost:9092
-    description: Test environment – consumer side
+    description: DVA API — Test environment, consumer side
   - url: http://localhost:9090
-    description: Local development server running on default port
+    description: DVA API — Local development server
+  - url: http://localhost:9099
+    description: VLA MANAGER API — Data Intermediary (test environment)
+  - url: http://localhost:8001
+    description: DVA VC MANAGER — Test environment, provider side
+  - url: http://localhost:8002
+    description: DVA VC MANAGER — Test environment, consumer side
   - url: '{server}'
     description: Custom parameterizable server
     variables:
@@ -25,15 +43,21 @@ servers:
         description: Custom server URL
 tags:
   - name: VLA
-    description: Endpoints related to veracity level agreements (VLAs)
+    description: Endpoints related to veracity level agreements (VLAs) — served by the VLA MANAGER API at the Data Intermediary
   - name: Templates
-    description: Endpoints related to the management of VLA templates
+    description: Endpoints related to the management of VLA templates — served by the VLA MANAGER API at the Data Intermediary
   - name: AoV
-    description: Endpoints related to attestations of veracity (AoVs)
+    description: Endpoints related to attestations of veracity (AoVs) — served by the DVA API
+  - name: AoV Issue
+    description: Endpoints for issuing AoV JWS credentials — served by the DVA VC MANAGER
+  - name: AoV Verify
+    description: Endpoints for verifying AoV JWS credentials — served by the DVA VC MANAGER
+  - name: Admin
+    description: Admin endpoints for managing the did:key whitelist and signing keys — served by the DVA VC MANAGER
   - name: PoV
-    description: Endpoints related to proofs of veracity (PoVs)
+    description: Endpoints related to proofs of veracity (PoVs) — future
   - name: Evaluation
-    description: Endpoints related to evaluating VLAs/requirements
+    description: Endpoints related to evaluating VLAs/requirements — served by DVA PROCESSING
   - name: Info
     description: Endpoints related to retrieving information about the running instance
   - name: Dev
@@ -362,11 +386,27 @@ paths:
       summary: Submit an attestation request
       description: >
         Create a new **AoV request** for a given data exchange.
-        Requests are processed asynchronously.
-        If your request has been accepted for processing, the response will be `202
-        ACCEPTED`.
-        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
-        error.
+
+        The DVA API orchestrates the **synchronous attestation flow**:
+          - **Initiation:** PDC sends raw data + a VLA ID via this endpoint.
+          - **VLA Resolution:** DVA API resolves the full VLA via `GET /vla/{id}` on
+            the VLA MANAGER API (hosted at the Data Intermediary), which returns the
+            complete VLA document.
+          - **Veracity Checks:** DVA API sends the VLA + data to
+            `POST /evaluate-batch` on DVA PROCESSING, which returns an array of
+            (requirement, result) pairs.
+          - **Credential Issuance:** DVA API asks `POST /aov/issue` on the DVA VC
+            MANAGER to sign the JWS; the DVA VC MANAGER returns the Ed25519 JWS
+            (EdDSA via PyNaCl — no custom crypto).
+          - **Synchronous Return:** DVA API returns the completed AoV JWS
+            **synchronously** in this response.
+
+        If the veracity checks fail, `evaluationPassing` is `false` and `jws`/`vcId`
+        are `null`. A `200 OK` is returned either way.
+
+        In the case of an invalid request (e.g., malformed `vlaId`), the response is
+        `400 BAD REQUEST`.
+      operationId: requestAov
       operationId: requestAov
       requestBody:
         required: true
@@ -505,21 +545,32 @@ paths:
                       success: true
                     timestamp: '2025-03-16T03:25:00Z'
       responses:
-        '202':
-          $ref: '#/components/responses/Accepted'
+        '200':
+          description: Synchronous response — the AoV JWS (if all checks pass) or null JWS (if checks fail).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AoVResponse'
         '400':
           $ref: '#/components/responses/InvalidData'
+        '404':
+          description: VLA not found at the Data Intermediary
+        '502':
+          description: Downstream service (VLA MANAGER API, DVA PROCESSING, or DVA VC MANAGER) unreachable
   /attestation/verify:
     post:
       tags: [AoV]
       summary: Submit an AoV verification request
       description: >
-        Create a new **AoV verification request** for a given AoV.
-        Requests are processed asynchronously.
-        If your request has been accepted for processing, the response will be `202
-        ACCEPTED`.
-        Otherwise, in the case of an invalid request, you will get a `400 BAD REQUEST`
-        error.
+        Verify an AoV JWS credential. The DVA API delegates this request
+        body-and-all to `POST /aov/verify` on the DVA VC MANAGER, which owns
+        the `did:key` whitelist and performs Ed25519 signature verification
+        via PyNaCl.
+
+        The verification is **fail-closed**: if the whitelist is empty, all
+        verifications are rejected. If the attester's `did:key` is not in the
+        whitelist, the response is `verified: false`. A malformed JWS returns
+        `400 BAD REQUEST`; a tampered JWS returns `200` with `verified: false`.
       operationId: requestAovVerification
       requestBody:
         required: true
@@ -528,10 +579,16 @@ paths:
             schema:
               $ref: '#/components/schemas/VerificationRequest'
       responses:
-        '202':
-          $ref: '#/components/responses/Accepted'
+        '200':
+          description: Verification result — `{verified, reason, payload}`. `verified` is true only if the attester is whitelisted AND the signature is valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
         '400':
-          $ref: '#/components/responses/InvalidData'
+          description: Malformed JWS (not a valid 3-part compact JWS)
+        '502':
+          description: DVA VC MANAGER unreachable
   /proof:
     post:
       tags: [Future]
@@ -581,13 +638,16 @@ paths:
   /evaluate:
     post:
       tags: [Evaluation]
-      summary: Evaluate a requirement against some data
+      summary: Evaluate a single requirement against some data
       description: >
         Takes some requirement (that could be part of a VLA) and a piece of data in
         the request body.
         The response is the result of evaluating the requirement on that data.
-        This endpoint is useful for testing requirements in the process of building
-        VLAs.
+
+        **Data-Intermediary-only endpoint.** Used by the `dva-processing-vla-manager`
+        service to test a single requirement against candidate data *while authoring*
+        a VLA. It is **not** invoked during the attestation flow — the DVA API uses
+        `POST /evaluate-batch` (below) instead.
       operationId: evaluate
       requestBody:
         required: true
@@ -600,16 +660,48 @@ paths:
           $ref: '#/components/responses/Evaluated'
         '400':
           $ref: '#/components/responses/InvalidData'
+  /evaluate-batch:
+    post:
+      tags: [Evaluation]
+      summary: Evaluate every requirement in a VLA against some data
+      description: >
+        Takes the full VLA document (as retrieved from the VLA MANAGER API) and
+        a piece of data in the request body.
+        Loops over `vla.schema[*].quality[*]` and returns one evaluation result per
+        requirement — the "array of (requirement, result) pairs" produced by the
+        veracity checks in the synchronous attestation flow.
+
+        **Participant-side endpoint.** Called by the DVA API during veracity checks
+        in the attestation flow. DVA PROCESSING is stateless and never writes to
+        Postgres — the DVA API owns the RequestLog audit row.
+      operationId: evaluateBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationBatchRequest'
+      responses:
+        '200':
+          description: Array of evaluation results — one per requirement
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvaluationResult'
+        '400':
+          $ref: '#/components/responses/InvalidData'
   /evaluate/from-template:
     post:
       tags: [Evaluation]
-      summary: Render a template and evaluate the result against some  data
+      summary: Render a template and evaluate the result against data
       description: >
         Takes a template ID and some data in the request body.
         The template with the given ID is rendered internally and the resulting
         requirement is evaluated on the data passed.
-        This endpoint is useful for testing requirements in the process of building
-        VLAs.
+
+        **Data-Intermediary-only endpoint.** Used while authoring VLAs.
       operationId: evaluteFromTemplate
       requestBody:
         required: true
@@ -624,6 +716,138 @@ paths:
           $ref: '#/components/responses/InvalidData'
         '404':
           $ref: '#/components/responses/NotFound'
+  # ---- DVA VC MANAGER endpoints (Participant) ----
+  /aov/issue:
+    post:
+      tags: [AoV Issue]
+      summary: Issue an AoV JWS credential
+      description: >
+        Signs an Attestation of Veracity as a W3C VC 2.0 JSON-LD JWS using
+        Ed25519/EdDSA (via PyNaCl — no hand-rolled cryptography). The JWS
+        header is `{"alg":"EdDSA","typ":"VC+LD-JSON+JWS"}` and the payload
+        shape is byte-identical across the Kotlin and Python implementations.
+
+        **Called by the DVA API during credential issuance in the synchronous attestation flow.**
+        Not intended to be called directly by the PDC.
+      operationId: issueAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AovIssueRequest'
+      responses:
+        '200':
+          description: The signed JWS plus metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AovIssueResponse'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+  /aov/verify:
+    post:
+      tags: [AoV Verify]
+      summary: Verify an AoV JWS credential
+      description: >
+        Verifies an AoV JWS against the local `did:key` whitelist.
+
+        **Fail-closed**: rejects all verifications when the whitelist is empty
+        or when the attester's `did:key` is not registered. A tampered JWS
+        returns `200` with `verified: false`; a malformed JWS returns `400`.
+
+        **Called by the DVA API at the consumer side.** Not intended to be
+        called directly by the PDC.
+      operationId: verifyAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+      responses:
+        '200':
+          description: Verification result — `{verified, reason, payload}`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400':
+          description: Malformed JWS (not a valid 3-part compact JWS)
+  /admin/whitelist:
+    get:
+      tags: [Admin]
+      summary: List trusted attesters
+      description: >
+        Returns the `did:key` whitelist. Requires `Authorization: Bearer <key>`
+        — fails-closed 401 when the `DVA_VC_MANAGER_API_KEY` env var is empty.
+      operationId: listWhitelist
+      responses:
+        '200':
+          description: Array of whitelist entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhitelistEntry'
+        '401':
+          description: API key not configured or invalid
+    post:
+      tags: [Admin]
+      summary: Add a trusted attester's did:key to the whitelist
+      operationId: addWhitelistEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhitelistAddRequest'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhitelistEntry'
+        '401':
+          description: API key not configured or invalid
+  /admin/whitelist/{did_key}:
+    delete:
+      tags: [Admin]
+      summary: Remove a trusted attester's did:key from the whitelist
+      operationId: removeWhitelistEntry
+      parameters:
+        - name: did_key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The did:key identifier to remove
+      responses:
+        '204':
+          description: Entry removed
+        '404':
+          description: did:key not in whitelist
+        '401':
+          description: API key not configured or invalid
+  /admin/keys:
+    get:
+      tags: [Admin]
+      summary: Get this service's own issuer did:key
+      description: >
+        Returns the `did:key` identifier derived from the service's persisted
+        Ed25519 signing key. Read-only — no private bytes exposed.
+      operationId: getOwnKey
+      responses:
+        '200':
+          description: Issuer did:key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnKey'
+        '401':
+          description: API key not configured or invalid
   /info/requests:
     get:
       tags: [Info]
@@ -975,6 +1199,129 @@ components:
         message:
           type: string
     AnyValue: {}
+    # ---- New schemas for the clean separation (veracity checks + credential issuance in the synchronous attestation flow) ----
+    EvaluationBatchRequest:
+      type: object
+      required: [vla, data]
+      properties:
+        vla:
+          type: object
+          description: The full VLA document (as returned by the VLA MANAGER API).
+        data:
+          description: The raw data being attested (any JSON value).
+    AovIssueRequest:
+      type: object
+      description: Body of `POST /aov/issue` — sent by the DVA API to the DVA VC MANAGER during credential issuance.
+      required: [vcId, validSince, subject, issuerId, recordId, contractId, dataExchangeId, payload, evaluationResults]
+      properties:
+        vcId:
+          type: string
+          format: uuid
+        validSince:
+          type: string
+        subject:
+          type: string
+        issuerId:
+          type: string
+        recordId:
+          type: string
+        contractId:
+          type: string
+        dataExchangeId:
+          type: string
+        payload:
+          type: string
+        evaluationResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResult'
+    AovIssueResponse:
+      type: object
+      description: Response of `POST /aov/issue` — the signed JWS plus metadata.
+      required: [jws, vcId, issuerDidKey, vcIssuedDate]
+      properties:
+        jws:
+          type: string
+          description: Compact JWS `header.payload.signature` (Ed25519/EdDSA).
+        vcId:
+          type: string
+          format: uuid
+        issuerDidKey:
+          type: string
+          description: The issuer's `did:key` identifier.
+        vcIssuedDate:
+          type: string
+    AoVResponse:
+      type: object
+      description: Synchronous response of `POST /attestation` (the final synchronous return to the PDC).
+      required: [requestId, evaluationPassing, evaluationResults]
+      properties:
+        requestId:
+          type: string
+        issuerDidKey:
+          type: string
+          nullable: true
+        jws:
+          type: string
+          nullable: true
+          description: The AoV JWS — `null` when `evaluationPassing` is false.
+        vcId:
+          type: string
+          nullable: true
+        evaluationPassing:
+          type: boolean
+        evaluationResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResult'
+        vcIssuedDate:
+          type: string
+          nullable: true
+    VerificationResponse:
+      type: object
+      description: Response of `POST /attestation/verify` and `POST /aov/verify`.
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          description: Present when `verified` is false — explains why.
+        payload:
+          type: object
+          nullable: true
+          description: The decoded JWS payload — present only when `verified` is true.
+    WhitelistEntry:
+      type: object
+      required: [id, didKey]
+      properties:
+        id:
+          type: string
+          format: uuid
+        didKey:
+          type: string
+          description: The attester's `did:key` identifier.
+        label:
+          type: string
+          nullable: true
+    WhitelistAddRequest:
+      type: object
+      required: [didKey]
+      properties:
+        didKey:
+          type: string
+        label:
+          type: string
+          nullable: true
+    OwnKey:
+      type: object
+      required: [issuerDidKey, keyPath]
+      properties:
+        issuerDidKey:
+          type: string
+        keyPath:
+          type: string
   parameters:
     idParam:
       name: id
