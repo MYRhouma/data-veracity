@@ -1,97 +1,180 @@
 ---
+# =============================================================================
+# DVA — Clean separation compose
+#
+# Topology (one container per role):
+#
+#   PARTICIPANT (provider)                  DATA INTERMEDIARY
+#   ─────────────────────────                ─────────────────────────
+#   dva-api-provider          (9091)         vla-manager-api            (9099)
+#   dva-vc-manager-provider   (8001)         dva-processing-vla-manager (--no-rmq, VLA-test only)
+#   dva-processing-provider
+#   postgres-provider         (5401)         postgres-vla-manager      (5409)
+#   dva-dashboard-provider    (3011)
+#
+#   PARTICIPANT (consumer)
+#   ─────────────────────────
+#   dva-api-consumer          (9092)
+#   dva-vc-manager-consumer   (8002)
+#   dva-processing-consumer
+#   postgres-consumer         (5402)
+#   dva-dashboard-consumer    (3012)
+#   vla-manager UI            (3020)  → points at vla-manager-api
+#
+# Synchronous attestation flow:
+#   Initiation: PDC → POST /attestation on dva-api (data + vlaId)
+#   VLA Resolution: dva-api → GET /vla/{id} on vla-manager-api (Data Intermediary)
+#     vla-manager-api returns the full VLA document
+#   Veracity Checks: dva-api → POST /evaluate-batch on dva-processing (data + VLA)
+#     dva-processing returns array of (requirement, result) pairs
+#   Credential Issuance: dva-api → POST /aov/issue on dva-vc-manager (claims + results)
+#     dva-vc-manager returns the JWS (Ed25519/EdDSA via PyNaCl)
+#   Synchronous Return: dva-api returns the AoV JWS synchronously to the PDC
+#
+# Legacy ACA-Py / RabbitMQ services are available via compose.acapy.yml.
+# =============================================================================
 services:
+  # ---- PARTICIPANT (provider) ----
   dva-api-provider:
     extends:
       file: common-services.yml
       service: dva-api
     environment:
       DVA_PROCESSING_URL: http://dva-processing-provider:5000
-      DVA_RABBITMQ_HOST: rabbit-provider
       DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
-      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
-      # Drop-in (JWS) default — set DVA_ATTESTATION_MODE=async to use ACA-Py.
-      DVA_ATTESTATION_MODE: sync
+      DVA_VLA_MANAGER_URL: http://vla-manager-api:8000
+      DVA_VC_MANAGER_URL: http://dva-vc-manager-provider:8000
       DVA_API_KEY: ""
-      DVA_SIGNING_KEY_PATH: /data/dva-signing-key.pem
     ports: [9091:9090]
     depends_on:
       dva-processing-provider: {condition: service_healthy}
-      rabbit-provider: {condition: service_healthy}
       postgres-provider: {condition: service_healthy}
-  dva-api-consumer:
+      vla-manager-api: {condition: service_started}
+      dva-vc-manager-provider: {condition: service_started}
+  dva-vc-manager-provider:
     extends:
       file: common-services.yml
-      service: dva-api
+      service: dva-vc-manager
     environment:
-      DVA_PROCESSING_URL: http://dva-processing-consumer:5000
-      DVA_RABBITMQ_HOST: rabbit-consumer
-      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
-      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
-      # Drop-in (JWS) default — set DVA_ATTESTATION_MODE=async to use ACA-Py.
-      DVA_ATTESTATION_MODE: sync
-      DVA_API_KEY: ""
-      DVA_SIGNING_KEY_PATH: /data/dva-signing-key.pem
-    ports: [9092:9090]
+      DVA_VC_MANAGER_SIGNING_KEY_PATH: /data/dva-vc-signing-key.pem
+      DVA_VC_MANAGER_DB_URL: postgresql://postgres-provider:5432/dva
+      DVA_VC_MANAGER_API_KEY: ""
+      DVA_VC_MANAGER_LOG_LEVEL: debug
+    healthcheck:
+      test: nc -z localhost 8000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports: [8001:8000]
     depends_on:
-      dva-processing-consumer: {condition: service_healthy}
-      rabbit-consumer: {condition: service_healthy}
-      postgres-consumer: {condition: service_healthy}
-  dva-api-vla-manager:
-    extends:
-      file: common-services.yml
-      service: dva-api
-    environment:
-      DVA_PROCESSING_URL: http://dva-processing-vla-manager:5000
-      DVA_RABBITMQ_HOST: rabbit-vla-manager
-      DVA_POSTGRES_URL: postgresql://postgres-vla-manager:5432/dva
-    ports: [9099:9090]
-    depends_on:
-      dva-processing-vla-manager: {condition: service_healthy}
-      rabbit-vla-manager: {condition: service_healthy}
-      postgres-vla-manager: {condition: service_healthy}
+      postgres-provider: {condition: service_healthy}
   dva-processing-provider:
     extends:
       file: common-services.yml
       service: dva-processing
     environment:
       DVA_LOG_LEVEL: debug
-      DVA_RABBITMQ_HOST: rabbit-provider
-      DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
-      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-provider:8050
-      # Drop-in (JWS) default — set DVA_ISSUER=acapy to forward AoVs to ACA-Py.
-      DVA_ISSUER: jws
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
       timeout: 5s
       retries: 3
+  postgres-provider:
+    extends:
+      file: common-services.yml
+      service: postgres
+    ports: [5401:5432]
+  dva-dashboard-provider:
+    extends:
+      file: common-services.yml
+      service: dva-dashboard
+    environment:
+      DVA_API_URL: http://dva-api-provider:9090
+    ports: [3011:80]
     depends_on:
-      rabbit-consumer: {condition: service_healthy}
-      postgres-provider: {condition: service_healthy}
+      dva-api-provider: {condition: service_healthy}
+
+  # ---- PARTICIPANT (consumer) ----
+  dva-api-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-api
+    environment:
+      DVA_PROCESSING_URL: http://dva-processing-consumer:5000
+      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
+      DVA_VLA_MANAGER_URL: http://vla-manager-api:8000
+      DVA_VC_MANAGER_URL: http://dva-vc-manager-consumer:8000
+      DVA_API_KEY: ""
+    ports: [9092:9090]
+    depends_on:
+      dva-processing-consumer: {condition: service_healthy}
+      postgres-consumer: {condition: service_healthy}
+      vla-manager-api: {condition: service_started}
+      dva-vc-manager-consumer: {condition: service_started}
+  dva-vc-manager-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-vc-manager
+    environment:
+      DVA_VC_MANAGER_SIGNING_KEY_PATH: /data/dva-vc-signing-key.pem
+      DVA_VC_MANAGER_DB_URL: postgresql://postgres-consumer:5432/dva
+      DVA_VC_MANAGER_API_KEY: ""
+      DVA_VC_MANAGER_LOG_LEVEL: debug
+    healthcheck:
+      test: nc -z localhost 8000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports: [8002:8000]
+    depends_on:
+      postgres-consumer: {condition: service_healthy}
   dva-processing-consumer:
     extends:
       file: common-services.yml
       service: dva-processing
     environment:
       DVA_LOG_LEVEL: debug
-      DVA_RABBITMQ_HOST: rabbit-consumer
-      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
-      DVA_ACA_PY_CONTROLLER_URL: http://dva-aca-py-controller-consumer:8050
-      # Drop-in (JWS) default — set DVA_ISSUER=acapy to forward AoVs to ACA-Py.
-      DVA_ISSUER: jws
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
       timeout: 5s
       retries: 3
+  postgres-consumer:
+    extends:
+      file: common-services.yml
+      service: postgres
+    ports: [5402:5432]
+  dva-dashboard-consumer:
+    extends:
+      file: common-services.yml
+      service: dva-dashboard
+    environment:
+      DVA_API_URL: http://dva-api-consumer:9090
+    ports: [3012:80]
     depends_on:
-      rabbit-consumer: {condition: service_healthy}
-      postgres-consumer: {condition: service_healthy}
+      dva-api-consumer: {condition: service_healthy}
+
+  # ---- DATA INTERMEDIARY ----
+  vla-manager-api:
+    extends:
+      file: common-services.yml
+      service: vla-manager-api
+    environment:
+      VLA_MANAGER_DB_URL: postgresql://postgres-vla-manager:5432/dva
+      VLA_MANAGER_API_KEY: ""
+      VLA_MANAGER_API_LOG_LEVEL: debug
+    healthcheck:
+      test: nc -z localhost 8000
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    ports: [9099:8000]
+    depends_on:
+      postgres-vla-manager: {condition: service_healthy}
   dva-processing-vla-manager:
     extends:
       file: common-services.yml
       service: dva-processing
-    command: [--no-rmq]
     environment:
       DVA_LOG_LEVEL: debug
     healthcheck:
@@ -99,33 +182,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
-  rabbit-provider:
-    extends:
-      file: common-services.yml
-      service: rabbit
-  rabbit-consumer:
-    extends:
-      file: common-services.yml
-      service: rabbit
-  rabbit-vla-manager:
-    extends:
-      file: common-services.yml
-      service: rabbit
-  postgres-provider:
-    extends:
-      file: common-services.yml
-      service: postgres
-    ports: [5401:5432]
-  postgres-consumer:
-    extends:
-      file: common-services.yml
-      service: postgres
-    ports: [5402:5432]
   postgres-vla-manager:
     extends:
       file: common-services.yml
       service: postgres
     ports: [5409:5432]
+  vla-manager:
+    extends:
+      file: common-services.yml
+      service: vla-manager
+    environment:
+      VLA_MANAGER_BACKEND_URL: http://vla-manager-api:8000
+    ports: [3020:80]
+    depends_on:
+      vla-manager-api: {condition: service_started}
+
+  # ---- KARATE (test profile) ----
   karate:
     profiles: [karate]
     extends:
@@ -136,138 +208,4 @@ services:
       dva-api-consumer: {condition: service_healthy}
       dva-processing-provider: {condition: service_started}
       dva-processing-consumer: {condition: service_started}
-  aca-py-provider:
-    extends:
-      file: common-services.yml
-      service: aca-py
-    profiles: [acapy]
-    command: >
-      start
-        --inbound-transport http 0.0.0.0 8020
-        --outbound-transport http
-        --admin 0.0.0.0 8030
-        --admin-insecure-mode
-        --webhook-url http://dva-aca-py-controller-provider:8050/webhooks
-        --label provider
-        --wallet-type askar
-        --wallet-name providerwallet
-        --wallet-key providerkey123
-        --auto-provision
-        --auto-accept-invites
-        --auto-accept-requests
-        --auto-respond-credential-offer
-        --auto-respond-credential-request
-        --auto-respond-presentation-request
-        --auto-verify-presentation
-        --auto-store-credential
-        --preserve-exchange-records
-        --genesis-url http://test.bcovrin.vonx.io/genesis
-        --seed 0000000000000000000ProviderSeed1
-        --ledger-pool-name bcovrin-test
-        --endpoint http://aca-py-provider:8020
-    healthcheck:
-      test: curl -Ss localhost:8030/status
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    ports: [8021:8020, 8031:8030]
-  aca-py-consumer:
-    extends:
-      file: common-services.yml
-      service: aca-py
-    profiles: [acapy]
-    command: >
-      start
-        --inbound-transport http 0.0.0.0 8020
-        --outbound-transport http
-        --admin 0.0.0.0 8030
-        --admin-insecure-mode
-        --webhook-url http://dva-aca-py-controller-consumer:8050/webhooks
-        --label consumer
-        --wallet-type askar
-        --wallet-name consumerwallet
-        --wallet-key consumerkey123
-        --auto-provision
-        --auto-accept-invites
-        --auto-accept-requests
-        --auto-respond-credential-offer
-        --auto-respond-credential-request
-        --auto-respond-presentation-request
-        --auto-verify-presentation
-        --auto-store-credential
-        --preserve-exchange-records
-        --genesis-url http://test.bcovrin.vonx.io/genesis
-        --seed 0000000000000000000ConsumerSeed1
-        --ledger-pool-name bcovrin-test
-        --endpoint http://aca-py-consumer:8020
-    healthcheck:
-      test: curl -Ss localhost:8030/status
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    ports: [8022:8020, 8032:8030]
-  dva-aca-py-controller-provider:
-    extends:
-      file: common-services.yml
-      service: dva-aca-py-controller
-    profiles: [acapy]
-    environment:
-      PYTHONUNBUFFERED: 1
-      ADMIN_URL: http://aca-py-provider:8030
-      ADMIN_LABEL: provider
-      PEER_CONTROLLER_URL: http://dva-aca-py-controller-consumer
-      PEER_AGENT_URL: http://aca-py-consumer
-      PEER_LABEL: consumer
-      PEER_CONTROLLER_PORT_IN: 8030
-      PEER_CONTROLLER_PORT_OUT: 8050
-      DVA_POSTGRES_URL: postgresql://postgres-provider:5432/dva
-    ports: [8051:8050]
-    depends_on:
-      aca-py-provider: {condition: service_healthy}
-      postgres-provider: {condition: service_healthy}
-  dva-aca-py-controller-consumer:
-    extends:
-      file: common-services.yml
-      service: dva-aca-py-controller
-    profiles: [acapy]
-    environment:
-      PYTHONUNBUFFERED: 1
-      ADMIN_URL: http://aca-py-consumer:8030
-      ADMIN_LABEL: consumer
-      PEER_CONTROLLER_URL: http://dva-aca-py-controller-provider
-      PEER_AGENT_URL: http://aca-py-provider
-      PEER_LABEL: provider
-      PEER_CONTROLLER_PORT_IN: 8030
-      PEER_CONTROLLER_PORT_OUT: 8050
-      DVA_POSTGRES_URL: postgresql://postgres-consumer:5432/dva
-    ports: [8052:8050]
-    depends_on:
-      aca-py-consumer: {condition: service_healthy}
-      postgres-consumer: {condition: service_healthy}
-  dva-dashboard-provider:
-    extends:
-      file: common-services.yml
-      service: dva-dashboard
-    environment:
-      DVA_API_URL: http://dva-api-provider:9090
-    ports: [3011:80]
-    depends_on:
-      dva-api-provider: {condition: service_healthy}
-  dva-dashboard-consumer:
-    extends:
-      file: common-services.yml
-      service: dva-dashboard
-    environment:
-      DVA_API_URL: http://dva-api-consumer:9090
-    ports: [3012:80]
-    depends_on:
-      dva-api-consumer: {condition: service_healthy}
-  vla-manager:
-    extends:
-      file: common-services.yml
-      service: vla-manager
-    environment:
-      VLA_MANAGER_BACKEND_URL: http://dva-api-vla-manager:9090
-    ports: [3020:80]
-    depends_on:
-      dva-api-vla-manager: {condition: service_healthy}
+      vla-manager-api: {condition: service_started}
