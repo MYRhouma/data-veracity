@@ -27,26 +27,50 @@ def handle_eval_request(request: EvaluationRequest) -> EvaluationResult:
         )
 
 
-def handle_eval_batch_request(request: EvaluateBatchRequest) -> list[EvaluationResult]:
-    """Evaluate every requirement in a VLA's ``schema[*].quality[*]``.
+def _eval_one(data: Any, requirement_dict: dict[str, Any]) -> EvaluationResult:
+    """Evaluate one requirement dict, tolerating errors."""
+    try:
+        requirement = Requirement(**requirement_dict)
+        return eval_requirement(data, requirement)
+    except Exception as e:
+        logger.warning(
+            "An error was thrown during evaluation of a requirement; tolerating",
+            error=e,
+        )
+        return EvaluationResult(
+            engine=None, timestamp=now(), success=False, error=str(e)
+        )
 
-    This is the veracity-checks phase of the synchronous attestation
-    flow. The DVA API calls ``POST /evaluate-batch`` with the full VLA
-    document (retrieved from the VLA Manager API) and the raw data; the
-    processing service returns one :class:`EvaluationResult` per
-    requirement.
+
+def handle_eval_batch_request(request: EvaluateBatchRequest) -> list[EvaluationResult]:
+    """Evaluate every requirement in a VLA.
+
+    Supports three VLA shapes encountered across the codebase:
+      1. ``vla.schema`` as a list, each entry containing a ``quality``
+         list (canonical ODCS shape — ``schema: [{quality:[…]}]``)
+      2. ``vla.schema`` as a single dict containing a ``quality`` list
+         (ODCS dict shape — ``schema: {quality:[…]}``)
+      3. ``vla.quality`` as a top-level list (flat VLAs with no schema
+         subdivision — ``quality: […]``)
 
     Pure function — no Postgres write. The DVA API owns the RequestLog
     audit row.
     """
     vla: dict[str, Any] = request.vla or {}
-    schema_items = vla.get("schema") or []
-    if not isinstance(schema_items, list):
-        logger.warning("VLA schema is not a list; treating as empty")
-        schema_items = []
+
+    # Normalize schema into a list of schema items
+    schema_items: list[Any] = []
+    raw_schema = vla.get("schema")
+    if isinstance(raw_schema, list):
+        schema_items = raw_schema
+    elif isinstance(raw_schema, dict):
+        schema_items = [raw_schema]
+    # else: no schema; we'll still check top-level quality below
 
     results: list[EvaluationResult] = []
     any_evaluations = False
+
+    # Iterate the schema items (each is a dict with a "quality" list)
     for schema_item in schema_items:
         if not isinstance(schema_item, dict):
             continue
@@ -55,18 +79,18 @@ def handle_eval_batch_request(request: EvaluateBatchRequest) -> list[EvaluationR
             continue
         for requirement_dict in quality:
             any_evaluations = True
-            try:
-                requirement = Requirement(**requirement_dict)
-                result = eval_requirement(request.data, requirement)
-            except Exception as e:
-                logger.warning(
-                    "An error was thrown during evaluation of a requirement; tolerating",
-                    error=e,
-                )
-                result = EvaluationResult(
-                    engine=None, timestamp=now(), success=False, error=str(e)
-                )
-            results.append(result)
+            results.append(_eval_one(request.data, requirement_dict))
+
+    # Fallback: if no schema, try top-level quality list
+    if not any_evaluations:
+        top_quality = vla.get("quality")
+        if isinstance(top_quality, list):
+            for requirement_dict in top_quality:
+                any_evaluations = True
+                results.append(_eval_one(request.data, requirement_dict))
+        elif isinstance(top_quality, dict):
+            any_evaluations = True
+            results.append(_eval_one(request.data, top_quality))
 
     if not any_evaluations:
         logger.warning("Nothing was evaluated from this VLA")
