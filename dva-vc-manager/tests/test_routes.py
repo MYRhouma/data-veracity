@@ -75,8 +75,8 @@ def test_aov_issue_returns_jws_and_did_key(client: TestClient) -> None:
     body = r.json()
     assert body["jws"]
     assert body["jws"].count(".") == 2
-    assert body["issuer_did_key"].startswith("did:key:z6Mk")
-    assert body["vc_issued_date"]
+    assert body["issuerDidKey"].startswith("did:key:z6Mk")
+    assert body["vcIssuedDate"]
 
 
 async def test_aov_issue_then_verify_round_trip(client: TestClient, whitelist: FakeWhitelist) -> None:
@@ -86,7 +86,7 @@ async def test_aov_issue_then_verify_round_trip(client: TestClient, whitelist: F
     assert r.status_code == 200
     body = r.json()
     jws = body["jws"]
-    issuer_did_key = body["issuer_did_key"]
+    issuer_did_key = body["issuerDidKey"]
 
     # Whitelist the issuer (await because FakeWhitelist.add is async)
     await whitelist.add(issuer_did_key, label="self")
@@ -94,7 +94,7 @@ async def test_aov_issue_then_verify_round_trip(client: TestClient, whitelist: F
     # Verify
     r2 = client.post(
         "/aov/verify",
-        json={"jws": jws, "attester_did_key": issuer_did_key},
+        json={"jws": jws, "attesterDidKey": issuer_did_key},
     )
     assert r2.status_code == 200, r2.text
     body2 = r2.json()
@@ -106,7 +106,7 @@ async def test_aov_issue_then_verify_round_trip(client: TestClient, whitelist: F
 async def test_aov_verify_rejects_tampered_jws(client: TestClient, whitelist: FakeWhitelist) -> None:
     r = client.post("/aov/issue", json=_issue_request())
     jws = r.json()["jws"]
-    issuer_did_key = r.json()["issuer_did_key"]
+    issuer_did_key = r.json()["issuerDidKey"]
     await whitelist.add(issuer_did_key)
 
     parts = jws.split(".")
@@ -118,7 +118,7 @@ async def test_aov_verify_rejects_tampered_jws(client: TestClient, whitelist: Fa
 
     r2 = client.post(
         "/aov/verify",
-        json={"jws": tampered, "attester_did_key": issuer_did_key},
+        json={"jws": tampered, "attesterDidKey": issuer_did_key},
     )
     assert r2.status_code == 200
     assert r2.json()["verified"] is False
