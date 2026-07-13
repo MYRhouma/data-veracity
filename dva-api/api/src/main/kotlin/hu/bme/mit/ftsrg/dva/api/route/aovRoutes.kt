@@ -172,7 +172,7 @@ fun Application.aovRoutes() {
 
             if (allSuccess) {
                 try {
-                    val issueResp: AovIssueResponse = httpClient.post("$vcManagerURL/aov/issue") {
+                    val upstreamResp: HttpResponse = httpClient.post("$vcManagerURL/aov/issue") {
                         contentType(ContentType.Application.Json)
                         setBody(AovIssueRequest(
                             vcId = vcId,
@@ -185,10 +185,23 @@ fun Application.aovRoutes() {
                             payload = requestWithID.data.toString(),
                             evaluationResults = results,
                         ))
-                    }.body()
-                    jws = issueResp.jws
-                    issuerDidKey = issueResp.issuerDidKey
-                    vcIssuedDate = issueResp.vcIssuedDate
+                    }
+                    if (upstreamResp.status == OK) {
+                        val issueResp: AovIssueResponse = upstreamResp.body()
+                        jws = issueResp.jws
+                        issuerDidKey = issueResp.issuerDidKey
+                        vcIssuedDate = issueResp.vcIssuedDate
+                    } else {
+                        // Upstream rejected — relay the real status, not 502.
+                        call.respond(
+                            upstreamResp.status,
+                            hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                                type = "VC_MANAGER_${upstreamResp.status.value}",
+                                title = upstreamResp.bodyAsText(),
+                            )
+                        )
+                        return@post
+                    }
                 } catch (e: Exception) {
                     call.respond(
                         HttpStatusCode.BadGateway,
@@ -243,12 +256,33 @@ fun Application.aovRoutes() {
         post<Attestations.Verify> {
             val request: AttestationVerifySyncRequestDTO = call.receive()
             try {
-                val resp: AttestationVerifySyncResponseDTO = httpClient.post("$vcManagerURL/aov/verify") {
+                val upstreamResp: HttpResponse = httpClient.post("$vcManagerURL/aov/verify") {
                     contentType(ContentType.Application.Json)
                     setBody(request)
-                }.body()
-                call.respond(OK, resp)
+                }
+                // Relay the upstream status directly: a 400 from the VC
+                // Manager (e.g., malformed JWS) is NOT the same as the
+                // VC Manager being unreachable. Without this fix the gateway
+                // conflates "upstream rejected my request" with "upstream
+                // is down" and the PDC sees a misleading 502.
+                if (upstreamResp.status == OK) {
+                    call.respond(OK, upstreamResp.body<AttestationVerifySyncResponseDTO>())
+                } else {
+                    // Non-2xx upstream — relay the same status with the
+                    // upstream text as the title so the PDC sees the real
+                    // reason ("malformed JWS: ...", "attester not
+                    // whitelisted", etc.) rather than a generic 502.
+                    call.respond(
+                        upstreamResp.status,
+                        hu.bme.mit.ftsrg.dva.dto.ErrDTO(
+                            type = "VC_MANAGER_${upstreamResp.status.value}",
+                            title = upstreamResp.bodyAsText(),
+                        )
+                    )
+                }
             } catch (e: Exception) {
+                // Genuinely unreachable (connection refused, timeout,
+                // hostname resolution failure) — fall back to 502.
                 call.respond(
                     HttpStatusCode.BadGateway,
                     hu.bme.mit.ftsrg.dva.dto.ErrDTO(
