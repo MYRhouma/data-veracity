@@ -12,7 +12,7 @@ import logging
 import os
 
 from .config import cfg
-from .repo import FakeVLARepo, VLARepo
+from .repo import FakeTemplateRepo, FakeVLARepo, TemplateRepo, VLARepo
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ async def get_repo() -> VLARepo:
         if cfg.postgres_dsn:
             from .main import _build_production_repo
 
-            _repo_singleton = _build_production_repo()
+            _repo_singleton = await _build_production_repo()
         else:
             # Dev convenience: boot with an in-memory repo so a bare
             # ``uvicorn vla_manager_api.main:app`` works without a
@@ -46,3 +46,29 @@ def install_repo_for_tests(repo: VLARepo) -> None:
     """Bypass the lazy path and inject a fixed repo for tests."""
     global _repo_singleton
     _repo_singleton = repo
+
+
+# --- Template repo (same lazy-singleton pattern) ---
+_template_repo_singleton: TemplateRepo | None = None
+
+
+async def get_template_repo() -> TemplateRepo:
+    global _template_repo_singleton
+    if _template_repo_singleton is None:
+        if cfg.postgres_dsn:
+            from .main import _build_production_template_repo
+
+            _template_repo_singleton = await _build_production_template_repo()
+        else:
+            logger.warning(
+                "VLA_MANAGER_DB_URL is not set — falling back to FakeTemplateRepo "
+                "(in-memory). State will be lost on restart."
+            )
+            _template_repo_singleton = FakeTemplateRepo()
+    return _template_repo_singleton
+
+
+def install_template_repo_for_tests(repo: TemplateRepo) -> None:
+    """Bypass the lazy path and inject a fixed template repo for tests."""
+    global _template_repo_singleton
+    _template_repo_singleton = repo
