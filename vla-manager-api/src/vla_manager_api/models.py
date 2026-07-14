@@ -55,3 +55,60 @@ class IDDTO(BaseModel):
 class ErrDTO(BaseModel):
     type: str
     title: str
+
+
+# ---------------------------------------------------------------------------
+# Template models — ported from the deleted Kotlin ``Template.kt`` (commit
+# ba876ff~1). Wire format is camelCase to remain byte-compatible with the
+# existing VLA Manager Vue UI and the OpenAPI spec.
+# ---------------------------------------------------------------------------
+
+class EvaluationMethod(BaseModel):
+    """Renderable evaluation method inside a Template."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    engine: str
+    variable_schema: dict[str, Any] = Field(alias="variableSchema")
+    implementation_template: str = Field(alias="implementationTemplate")
+
+
+class TemplateNew(BaseModel):
+    """Body of ``POST /template`` — create a new template (no id)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    description: Optional[str] = None
+    criterion_type: str = Field(alias="criterionType")
+    target_aspect: str = Field(alias="targetAspect")
+    evaluation_method: EvaluationMethod = Field(alias="evaluationMethod")
+
+
+class TemplatePatch(BaseModel):
+    """Body of ``PATCH /template/{id}`` — partial update. ``id`` must
+    match the path parameter."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: UUID
+    name: Optional[str] = None
+    description: Optional[str] = None
+    criterion_type: Optional[str] = Field(default=None, alias="criterionType")
+    target_aspect: Optional[str] = Field(default=None, alias="targetAspect")
+    evaluation_method: Optional[EvaluationMethod] = Field(
+        default=None, alias="evaluationMethod"
+    )
+
+
+class Template(BaseModel):
+    """Full template representation returned by GET endpoints."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    criterion_type: str = Field(alias="criterionType")
+    target_aspect: str = Field(alias="targetAspect")
+    evaluation_method: EvaluationMethod = Field(alias="evaluationMethod")
