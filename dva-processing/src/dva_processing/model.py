@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CapitalStrEnum(StrEnum):
@@ -48,6 +48,23 @@ class EvaluationResult(BaseModel):
     success: bool
     details: Optional[str] = None
     error: Optional[str] = None
+
+
+class EvaluationFromTemplateRequest(BaseModel):
+    """Body of ``POST /evaluate/from-template``.
+
+    Data-Intermediary-only endpoint used while authoring VLAs. The caller
+    supplies a template ID + the model values to render the template into
+    a concrete ``DataQuality`` requirement, then evaluates against ``data``.
+    Mirrors the deleted Kotlin ``EvaluateFromTemplate`` (commit ba876ff~1).
+    Field names are camelCase on the wire to match the Kotlin contract.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    template_id: Any = Field(alias="templateID")
+    template_model: dict[str, Any] = Field(alias="templateModel")
+    data: Any
 
 
 class JQResult(BaseModel):

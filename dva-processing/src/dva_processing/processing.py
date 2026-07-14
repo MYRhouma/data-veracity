@@ -1,11 +1,16 @@
 from typing import Any
+from uuid import UUID
+
+import requests
 
 from .eval import eval_requirement
 from .log import get_logger
 from .model import (
     EvaluateBatchRequest,
+    EvaluationFromTemplateRequest,
     EvaluationRequest,
     EvaluationResult,
+    QualityEngine,
     Requirement,
 )
 from .util import now
@@ -96,3 +101,61 @@ def handle_eval_batch_request(request: EvaluateBatchRequest) -> list[EvaluationR
         logger.warning("Nothing was evaluated from this VLA")
 
     return results
+
+
+def handle_eval_from_template_request(
+    request: EvaluationFromTemplateRequest,
+) -> EvaluationResult:
+    """Render a template (fetched from VLA Manager API) and evaluate it.
+
+    Mirrors the deleted Kotlin ``evaluationRoutes.kt`` FromTemplate
+    handler. Steps:
+      1. Fetch the template by id from the VLA Manager API
+         (``GET {VLA_MANAGER_API_URL}/template/{id}``).
+      2. Render the ``implementationTemplate`` with the ``templateModel``
+         using Handlebars ``{{var}}`` syntax (via ``chevron``).
+      3. Build a ``Requirement`` from the rendered implementation + engine.
+      4. Evaluate the requirement against ``data``.
+    """
+    import chevron
+    from os import environ
+
+    vla_manager_url = environ.get(
+        "DVA_VLA_MANAGER_URL", "http://localhost:8000"
+    )
+    try:
+        template_id = request.template_id
+        resp = requests.get(f"{vla_manager_url}/template/{template_id}", timeout=10)
+        if resp.status_code == 404:
+            return EvaluationResult(
+                engine=None, timestamp=now(), success=False,
+                error=f"Template {template_id} not found at the VLA Manager API",
+            )
+        resp.raise_for_status()
+        template = resp.json()
+    except Exception as e:
+        return EvaluationResult(
+            engine=None, timestamp=now(), success=False, error=str(e),
+        )
+
+    em = template["evaluationMethod"]
+    try:
+        rendered = chevron.render(
+            em["implementationTemplate"], request.template_model
+        )
+    except Exception as e:
+        return EvaluationResult(
+            engine=None, timestamp=now(), success=False,
+            error=f"Failed to render template: {e}",
+        )
+
+    try:
+        engine = QualityEngine(em["engine"].upper())
+    except ValueError:
+        return EvaluationResult(
+            engine=None, timestamp=now(), success=False,
+            error=f"Unknown engine '{em['engine']}' in template",
+        )
+
+    requirement = Requirement(implementation=rendered, engine=engine)
+    return eval_requirement(request.data, requirement)
