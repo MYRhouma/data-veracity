@@ -1,0 +1,292 @@
+openapi: 3.1.0
+
+info:
+  title: DVA Processing
+  version: 0.2.0
+  description: >
+    The DVA Processing service is a stateless veracity-check engine implemented in
+    Python/FastAPI. It evaluates data requirements expressed in VLAs (Veracity Level
+    Agreements) against supplied data and returns per-requirement evaluation results.
+
+    Deployment footprint:
+      - `/evaluate` and `/evaluate-batch` run on the Participant side (Provider and
+        Consumer) as internal services, invoked during the verification phase of attestation.
+      - `/evaluate/from-template` runs on the Data Intermediary side and is used while
+        authoring VLAs: it fetches a template from the VLA Manager API by ID, renders it
+        with a model, and evaluates it against data.
+
+servers:
+  - url: http://localhost:5009
+    description: Data Intermediary dva-processing-vla-manager (for /evaluate/from-template and authoring)
+  - url: http://localhost:5000
+    description: Participant (provider or consumer dva-processing — internal, not host-mapped)
+
+tags:
+  - name: Evaluation
+    description: Evaluate data against veracity requirements.
+
+paths:
+  /evaluate:
+    post:
+      operationId: evaluate
+      tags: [Evaluation]
+      summary: Evaluate a single requirement against data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+            examples:
+              jq_non_empty_actor_name:
+                summary: jq requirement checking actor name is non-empty
+                value:
+                  requirement:
+                    implementation: >-
+                      { success: (.actor.name | length > 0), details: "actor name non-empty" }
+                    engine: JQ
+                  data:
+                    actor:
+                      name: Jean Dupont
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+      responses:
+        '200':
+          description: Evaluation completed (check `success`/`error` for outcome).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+        '500':
+          description: Evaluation error (result.error is not null).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error for the request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /evaluate-batch:
+    post:
+      operationId: evaluateBatch
+      tags: [Evaluation]
+      summary: Evaluate all requirements in a VLA against data.
+      description: >
+        Iterates over every quality requirement declared in the VLA's schema and
+        returns one EvaluationResult per requirement. Invoked by the DVA API during
+        attestation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationBatchRequest'
+            examples:
+              xapi_statement_vla:
+                summary: VLA with a jq quality requirement on actor name
+                value:
+                  vla:
+                    schema:
+                      name: xapi_statement
+                      logicalType: object
+                      properties:
+                        - name: actor
+                          logicalType: object
+                          required: true
+                      quality:
+                        - engine: JQ
+                          implementation: >-
+                            { success: (.actor.name | length > 0), details: "non-empty" }
+                  data:
+                    actor:
+                      name: Jean Dupont
+      responses:
+        '200':
+          description: Array of per-requirement evaluation results.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvaluationResult'
+        '500':
+          description: Evaluation error (one or more results have error set).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error for the request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /evaluate/from-template:
+    post:
+      operationId: evaluateFromTemplate
+      tags: [Evaluation]
+      summary: Fetch a VLA template, render with a model, and evaluate against data.
+      description: >
+        Data-Intermediary-only endpoint. Fetches the template identified by
+        `templateID` from the VLA Manager API, renders it with `templateModel`,
+        evaluates the resulting requirement against `data`, and returns the result.
+        Field names are camelCase on the wire.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationFromTemplateRequest'
+            examples:
+              date_template:
+                summary: Render a date template and evaluate it
+                value:
+                  templateID: b966cfcf-9e06-4ddd-a0c5-2b0f71155496
+                  templateModel:
+                    date: '20250101T000000Z'
+                  data:
+                    date: '20250101T000000Z'
+      responses:
+        '200':
+          description: Evaluation completed (check `success`/`error` for outcome).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+        '500':
+          description: Evaluation error (result.error is not null).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error for the request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    QualityEngine:
+      type: string
+      enum: [SCHEMA, GREAT_EXPECTATIONS, JQ]
+      description: >-
+        The engine used to evaluate a requirement. SCHEMA performs structural
+        validation against the VLA schema, GREAT_EXPECTATIONS delegates to the
+        Great Expectations library, and JQ evaluates a jq expression whose output
+        must be `{ success: boolean, details: string }`.
+
+    EvaluationRequest:
+      type: object
+      description: Request body for POST /evaluate.
+      required: [requirement, data]
+      properties:
+        requirement:
+          $ref: '#/components/schemas/Requirement'
+        data:
+          description: The data document to evaluate the requirement against.
+          additionalProperties: true
+      additionalProperties: false
+
+    Requirement:
+      type: object
+      description: A single veracity requirement to evaluate.
+      required: [implementation, engine]
+      properties:
+        implementation:
+          type: string
+          description: >-
+            Engine-specific implementation. For JQ this is a jq expression whose
+            output must be an object `{ success: boolean, details: string }`.
+        engine:
+          $ref: '#/components/schemas/QualityEngine'
+      additionalProperties: false
+
+    EvaluationBatchRequest:
+      type: object
+      description: Request body for POST /evaluate-batch.
+      required: [vla, data]
+      properties:
+        vla:
+          type: object
+          description: >-
+            The full VLA document, including its `schema` (with embedded `quality`
+            requirements) and any quality declarations.
+          additionalProperties: true
+        data:
+          description: The data document to evaluate all requirements against.
+          additionalProperties: true
+      additionalProperties: false
+
+    EvaluationFromTemplateRequest:
+      type: object
+      description: >-
+        Request body for POST /evaluate/from-template. Field names are camelCase
+        on the wire.
+      required: [templateID, templateModel, data]
+      properties:
+        templateID:
+          type: string
+          format: uuid
+          description: UUID of the template to fetch from the VLA Manager API.
+        templateModel:
+          type: object
+          description: >-
+            Model object used to render the fetched template. Keys are template
+            placeholders, values are their substitutions.
+          additionalProperties: true
+        data:
+          description: The data document to evaluate the rendered requirement against.
+          additionalProperties: true
+      additionalProperties: false
+
+    EvaluationResult:
+      type: object
+      description: Outcome of evaluating a single requirement against data.
+      required: [timestamp, success]
+      properties:
+        engine:
+          description: >-
+            The engine that produced this result. Nullable (e.g. when evaluation
+            failed before an engine could be selected).
+          oneOf:
+            - $ref: '#/components/schemas/QualityEngine'
+            - type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp at which evaluation completed.
+        success:
+          type: boolean
+          description: Whether the requirement was satisfied by the data.
+        details:
+          type: string
+          description: Engine-provided human-readable details about the outcome.
+        error:
+          type: string
+          description: >-
+            Non-null when the evaluation failed to run (e.g. invalid expression,
+            engine error). When set, `success` is false.
+      additionalProperties: false
+
+    Error:
+      type: object
+      description: Error envelope returned for 4xx/5xx responses.
+      required: [type, title]
+      properties:
+        type:
+          type: string
+          description: A short machine-readable error category (e.g. "validation_error").
+        title:
+          type: string
+          description: A short human-readable summary of the error.
+        detail:
+          type: string
+          description: Optional detailed description of the error.
+      additionalProperties: false

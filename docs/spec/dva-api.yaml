@@ -1,0 +1,394 @@
+openapi: 3.1.0
+info:
+  title: DVA API
+  version: 0.6.0
+  description: |-
+    HTTP gateway / orchestrator for the synchronous attestation flow of the
+    Data Veracity Assurance (DVA) building block. Implemented in Kotlin/Ktor.
+
+    Responsibilities of this service (and ONLY this service):
+
+      1. `POST /attestation` — synchronous attestation orchestration:
+         - Resolves the Veracity Level Agreement (VLA) via
+           `GET {vlaManagerURL}/vla/{id}` when a `vlaId` reference is given.
+         - Calls `POST {processingURL}/evaluate-batch` with the contract data.
+         - If every quality evaluation passes, requests credential issuance via
+           `POST {vcManagerURL}/aov/issue` and returns the resulting Ed25519 JWS
+           synchronously.
+      2. `POST /attestation/verify` — verifies a JWS by proxying the request
+         body unchanged to `POST {vcManagerURL}/aov/verify`.
+      3. `GET /info/requests`         — audit rows (`RequestLog`).
+      4. `GET /info/presentations`    — audit rows (`VerifRequestLog`).
+      5. `GET /info/credentials`      — opaque passthrough of
+         `GET {acaPyAgentURL}/credentials`.
+
+    The AoV JWS is returned **synchronously** in the `POST /attestation`
+    response. If the veracity checks fail, `evaluationPassing` is `false` and
+    `jws` / `vcId` are `null`; a `200 OK` is still returned. Invalid requests
+    (e.g. malformed `vlaId`) yield `400 BAD REQUEST`.
+servers:
+  - url: http://localhost:9091
+    description: Provider
+  - url: http://localhost:9092
+    description: Consumer
+tags:
+  - name: AoV
+    description: Endpoints related to attestations of veracity (AoVs)
+  - name: Info
+    description: Audit info endpoints backed by local `RequestLog` / `VerifRequestLog` tables or proxied agent calls
+paths:
+  /attestation:
+    post:
+      tags: [AoV]
+      summary: Request an Attestation of Veracity (AoV)
+      description: |-
+        Synchronous attestation orchestration. The `contract` carries either an
+        inline VLA (`contract.vla` object) OR a reference to one (top-level
+        `vlaId` string UUID). When the reference form is used, this gateway
+        resolves the VLA via the Data Intermediary's VLA MANAGER API.
+      operationId: requestAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttestationRequest'
+            examples:
+              VlaIdReference:
+                summary: VLA reference by vlaId (no inline VLA)
+                value:
+                  exchangeID: xchg-0001
+                  contract:
+                    id: contract-0001
+                    dataProvider: /catalog/participants/provider-test-id
+                    dataConsumer: /catalog/participants/consumer-test-did
+                    serviceOffering: /catalog/serviceofferings/serviceoffering-test-did
+                    purpose: []
+                    negotiators:
+                      - did: /catalog/participants/provider-test-id
+                      - did: /catalog/participants/consumer-test-did
+                    status: PENDING
+                    policy:
+                      - uid: /policy/policy-0-uid
+                        permission:
+                          - type: permission
+                            uid: /target/3f8d1b0e-8e2e-4b69-9b1f-089fe2f3e9d7
+                            action: use
+                  vlaId: ddf4a56a-228b-461c-9448-d0e16135e315
+                  attesterID: attester-0000
+                  data:
+                    actor:
+                      name: Jean Dupont
+                      mbox: mailto:jeandupont@example.com
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+                    object:
+                      id: https://navy.mil/netc/xapi/activities/simulations/b9e16535-4fc9-4c66-ac87-3ad7ce515f5c/events/0221144
+                      definition:
+                        name:
+                          en-US: Event in Simulator
+                        description:
+                          en-US: You're wearing all your PPE
+                        type: http://adlnet.gov/expapi/activities/interaction
+                    result:
+                      success: true
+                    timestamp: '2025-03-16T03:25:00Z'
+      responses:
+        '200':
+          description: >-
+            Synchronous response — the AoV JWS (if all checks pass) or null JWS
+            (if checks fail).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AoVResponse'
+        '400':
+          description: Malformed request (e.g. invalid `vlaId`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: VLA not found at the Data Intermediary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            Downstream service (VLA MANAGER API, DVA PROCESSING, or DVA VC
+            MANAGER) unreachable or returned an error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /attestation/verify:
+    post:
+      tags: [AoV]
+      summary: Verify an attestation JWS
+      description: |-
+        Verifies a JWS by proxying the request body unchanged to
+        `POST {vcManagerURL}/aov/verify`. The downstream verifier performs the
+        Ed25519 signature check against the supplied `attesterDidKey`.
+      operationId: requestAovVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttestationVerifyRequest'
+            examples:
+              VerifyJws:
+                summary: Verify a compact JWS with the attester did:key
+                value:
+                  jws: >-
+                    eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa29iQ2c4Y2tUZU1Hekg4RWZYYnVKU2RRNng3UXZnZGVMNkZqQjdDeng1V1VZV0FteSJ9..pQYZ8ViPzZbnY3RJZUE3Gp_b2GXG3oFnu1Px5r2to-sZGNDv5Cj8Qp5sJvbE_3gwec6GjNmNJZpK7ve1r7UtCw
+                  attesterDidKey: did:key:z6MkobCg8ckTeMGzH8EfXbuJSdQ6g7QvgdeL6FjB7Czx5WUYWAm
+      responses:
+        '200':
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttestationVerifyResponse'
+        '400':
+          description: Malformed verification request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: DVA VC MANAGER unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /info/requests:
+    get:
+      tags: [Info]
+      summary: List attestation request audit rows
+      description: >-
+        Returns `RequestLog` audit rows persisted by this gateway. The row
+        shape is dynamic (driven by the local audit schema) and intentionally
+        opaque at the API boundary.
+      operationId: getRequests
+      responses:
+        '200':
+          description: List of `RequestLog` audit rows.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: RequestLog audit rows; opaque object shape defined by the local audit table.
+                items:
+                  type: object
+                  description: One RequestLog row. Object shape is dynamic and intentionally opaque.
+                  additionalProperties: true
+  /info/presentations:
+    get:
+      tags: [Info]
+      summary: List verification request audit rows
+      description: >-
+        Returns `VerifRequestLog` audit rows persisted by this gateway. The row
+        shape is dynamic and intentionally opaque at the API boundary.
+      operationId: getPresentations
+      responses:
+        '200':
+          description: List of `VerifRequestLog` audit rows.
+          content:
+            application/json:
+              schema:
+                type: array
+                description: VerifRequestLog audit rows; opaque object shape defined by the local audit table.
+                items:
+                  type: object
+                  description: One VerifRequestLog row. Object shape is dynamic and intentionally opaque.
+                  additionalProperties: true
+  /info/credentials:
+    get:
+      tags: [Info]
+      summary: List credentials from the ACA-Py agent
+      description: >-
+        Opaque passthrough of `GET {acaPyAgentURL}/credentials`. No body
+        transformation is performed; the agent's response is returned as-is.
+      operationId: getCredentials
+      responses:
+        '200':
+          description: Opaque credentials payload from the ACA-Py agent.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: ACA-Py `/credentials` response, passed through unchanged.
+                additionalProperties: true
+        '502':
+          description: ACA-Py agent unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    VeracityRequest:
+      description: Base shape shared by attestation / verification requests.
+      type: object
+      required: [exchangeID, contract, data]
+      properties:
+        exchangeID:
+          type: string
+          example: xchg-0001
+        contract:
+          type: object
+          description: >-
+            Data contract. Either `id`+`vla` (inline VLA) or `id`+`vlaId`
+            (reference resolved by the gateway) must be supplied.
+          required: [id]
+          properties:
+            id:
+              type: string
+              example: contract-0001
+            dataProvider:
+              type: string
+              example: /catalog/participants/provider-test-id
+            vla:
+              type: object
+              description: Inline Veracity Level Agreement.
+              additionalProperties: true
+        data:
+          description: The veracity data payload unit (any JSON value).
+    AttestationRequest:
+      allOf:
+        - $ref: '#/components/schemas/VeracityRequest'
+        - type: object
+          required: [attesterID]
+          properties:
+            attesterID:
+              type: string
+              example: attester-0000
+            vlaId:
+              type: string
+              format: uuid
+              description: >-
+                Reference to a VLA owned by the Data Intermediary. When
+                provided, the gateway resolves it via
+                `GET {vlaManagerURL}/vla/{id}`. Mutually exclusive with an
+                inline `contract.vla` object.
+              example: ddf4a56a-228b-461c-9448-d0e16135e315
+    QualityEngine:
+      description: Identifier of the evaluation engine invoked by DVA PROCESSING.
+      type: string
+      enum: [SCHEMA, GREAT_EXPECTATIONS, JQ]
+      example: SCHEMA
+    EvaluationResult:
+      description: Result of one quality-engine evaluation run against `data`.
+      type: object
+      properties:
+        engine:
+          description: Engine that evaluated `data`.
+          $ref: '#/components/schemas/QualityEngine'
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp at which the evaluation ran.
+          example: '2025-03-16T03:25:00Z'
+        success:
+          type: boolean
+          description: Whether the evaluated check passed.
+          example: true
+        details:
+          type: string
+          nullable: true
+          description: Human-readable success detail (absent or null on failure).
+        error:
+          type: string
+          nullable: true
+          description: Human-readable failure detail (absent or null on success).
+      required: [timestamp, success]
+    AoVResponse:
+      description: Synchronous attestation response returned by this gateway.
+      type: object
+      properties:
+        requestId:
+          type: string
+          description: Internal request identifier.
+          example: xchg-0001
+        issuerDidKey:
+          type: string
+          nullable: true
+          description: "`did:key` of the credential issuer, or null when issuance was skipped."
+        jws:
+          type: string
+          nullable: true
+          description: Compact Ed25519 JWS encoding the attestation, or null when checks failed.
+        vcId:
+          type: string
+          nullable: true
+          description: Identifier of the issued Verifiable Credential, or null when not issued.
+        evaluationPassing:
+          type: boolean
+          description: Whether every engine evaluation passed.
+          example: true
+        evaluationResults:
+          type: array
+          description: Per-engine evaluation results.
+          items:
+            $ref: '#/components/schemas/EvaluationResult'
+        vcIssuedDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp at which the VC was issued, or null when not issued.
+      required: [requestId, evaluationPassing, evaluationResults]
+    AttestationVerifyRequest:
+      description: JWS verification request proxied to DVA VC MANAGER's `/aov/verify`.
+      type: object
+      required: [jws, attesterDidKey]
+      properties:
+        jws:
+          type: string
+          description: Compact Ed25519 JWS to verify.
+        attesterDidKey:
+          type: string
+          description: "`did:key` of the attester whose public key should validate the JWS signature."
+          example: did:key:z6MkobCg8ckTeMGzH8EfXbuJSdQ6g7QvgdeL6FjB7Czx5WUYWAm
+    AttestationVerifyResponse:
+      description: Verification result returned from DVA VC MANAGER's `/aov/verify`.
+      type: object
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+          description: Whether the JWS signature was valid for the supplied attester did:key.
+          example: true
+        reason:
+          type: string
+          nullable: true
+          description: Failure reason when `verified` is false; null otherwise.
+          example: signature did not validate
+        payload:
+          type: object
+          nullable: true
+          description: Decoded JWS payload on success, or null on failure.
+          additionalProperties: true
+    Error:
+      description: RFC 7807 (application/problem+json) error object.
+      type: object
+      properties:
+        type:
+          type: string
+          description: A URI reference identifying the problem type.
+          example: about:blank
+        title:
+          type: string
+          description: Short human-readable summary of the problem type.
+          example: Bad Request
+        detail:
+          type: string
+          nullable: true
+          description: Human-readable explanation specific to this occurrence.
+          example: vlaId must be a valid UUID
+        instance:
+          type: string
+          nullable: true
+          description: URI reference identifying the specific occurrence of the problem.
+      required: [type, title]

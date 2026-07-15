@@ -407,7 +407,6 @@ paths:
         In the case of an invalid request (e.g., malformed `vlaId`), the response is
         `400 BAD REQUEST`.
       operationId: requestAov
-      operationId: requestAov
       requestBody:
         required: true
         content:
