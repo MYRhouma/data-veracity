@@ -1,13 +1,13 @@
 FROM python:3.12-slim AS build
 
 # Install uv (mirrors dva-processing/Dockerfile style)
-COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /uvx /bin/
 
 WORKDIR /app/
 
 # Install dependencies (cached layer)
 RUN \
-    --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/uv2 \
     --mount=type=bind,source=./dva-vc-manager/pyproject.toml,target=pyproject.toml \
     uv pip install --system \
         "fastapi~=0.136.3" \
@@ -42,6 +42,10 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1
+
+# Hand-written OpenAPI spec — served at /swagger/openapi.yaml
+COPY ./docs/spec/dva-vc-manager.yaml /app/openapi.yaml
+ENV DVA_VC_MANAGER_OPENAPI_FILE=/app/openapi.yaml
 
 ENTRYPOINT ["uvicorn", "dva_vc_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
 

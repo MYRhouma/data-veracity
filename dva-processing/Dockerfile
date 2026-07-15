@@ -8,7 +8,7 @@ WORKDIR /app/
 
 # Install dependencies
 RUN \
-    --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/uv2 \
     --mount=type=bind,source=./dva-processing/uv.lock,target=uv.lock \
     --mount=type=bind,source=./dva-processing/pyproject.toml,target=pyproject.toml \
     uv sync \
@@ -22,7 +22,7 @@ COPY ./dva-processing/ /app/
 
 # Sync project
 RUN \
-    --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/uv2 \
     uv sync \
         --frozen \
 	--compile-bytecode \
@@ -40,6 +40,10 @@ RUN apt-get update && \
 
 # Copy built project
 COPY --from=build --chown=app:app /app/.venv/ /app/.venv/
+
+# Hand-written OpenAPI spec — served at /swagger/openapi.yaml
+COPY ./docs/spec/dva-processing.yaml /app/openapi.yaml
+ENV DVA_PROCESSING_OPENAPI_FILE=/app/openapi.yaml
 
 # Run app
 ENTRYPOINT ["/app/.venv/bin/dva-processing"]
