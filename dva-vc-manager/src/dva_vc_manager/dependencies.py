@@ -16,9 +16,9 @@ async def get_whitelist() -> WhitelistRepo:
     global _whitelist_singleton
     if _whitelist_singleton is None:
         if cfg.postgres_dsn:
-            from .main import _build_production_whitelist
+            from .main import _build_production_whitelist_async
 
-            _whitelist_singleton = _build_production_whitelist()
+            _whitelist_singleton = await _build_production_whitelist_async()
         else:
             logger.warning(
                 "DVA_VC_MANAGER_DB_URL is not set — falling back to "
