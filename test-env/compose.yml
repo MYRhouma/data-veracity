@@ -57,8 +57,8 @@ services:
       service: dva-vc-manager
     environment:
       DVA_VC_MANAGER_SIGNING_KEY_PATH: /data/dva-vc-signing-key.pem
-      DVA_VC_MANAGER_DB_URL: postgresql://postgres-provider:5432/dva
-      DVA_VC_MANAGER_API_KEY: ""
+      DVA_VC_MANAGER_DB_URL: postgresql://postgres:postgres@postgres-provider:5432/dva
+      DVA_VC_MANAGER_API_KEY: "e2e-test-key"
       DVA_VC_MANAGER_LOG_LEVEL: debug
     healthcheck:
       test: nc -z localhost 8000
@@ -74,6 +74,7 @@ services:
       service: dva-processing
     environment:
       DVA_LOG_LEVEL: debug
+      DVA_VLA_MANAGER_URL: http://vla-manager-api:8000
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -117,8 +118,8 @@ services:
       service: dva-vc-manager
     environment:
       DVA_VC_MANAGER_SIGNING_KEY_PATH: /data/dva-vc-signing-key.pem
-      DVA_VC_MANAGER_DB_URL: postgresql://postgres-consumer:5432/dva
-      DVA_VC_MANAGER_API_KEY: ""
+      DVA_VC_MANAGER_DB_URL: postgresql://postgres:postgres@postgres-consumer:5432/dva
+      DVA_VC_MANAGER_API_KEY: "e2e-test-key"
       DVA_VC_MANAGER_LOG_LEVEL: debug
     healthcheck:
       test: nc -z localhost 8000
@@ -134,6 +135,7 @@ services:
       service: dva-processing
     environment:
       DVA_LOG_LEVEL: debug
+      DVA_VLA_MANAGER_URL: http://vla-manager-api:8000
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
@@ -160,8 +162,8 @@ services:
       file: common-services.yml
       service: vla-manager-api
     environment:
-      VLA_MANAGER_DB_URL: postgresql://postgres-vla-manager:5432/dva
-      VLA_MANAGER_API_KEY: ""
+      VLA_MANAGER_DB_URL: postgresql://postgres:postgres@postgres-vla-manager:5432/dva
+      VLA_MANAGER_API_KEY: "e2e-test-key"
       VLA_MANAGER_API_LOG_LEVEL: debug
     healthcheck:
       test: nc -z localhost 8000
@@ -177,11 +179,13 @@ services:
       service: dva-processing
     environment:
       DVA_LOG_LEVEL: debug
+      DVA_VLA_MANAGER_URL: http://vla-manager-api:8000
     healthcheck:
       test: nc -z localhost 5000
       interval: 5s
       timeout: 5s
       retries: 3
+    ports: [5009:5000]
   postgres-vla-manager:
     extends:
       file: common-services.yml
