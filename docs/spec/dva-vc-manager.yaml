@@ -194,6 +194,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/WhitelistAddRequest'
+            examples:
+              AddIssuer:
+                summary: Whitelist an issuer did:key
+                value:
+                  did_key: did:key:z6MktRz8iVwNh1rLKV47C2i2nMe4zwGt7SgLBjS9zw1jNuQY
+                  label: DVA VC Manager (provider)
       responses:
         '201':
           description: Entry created.

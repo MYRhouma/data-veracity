@@ -58,11 +58,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/EvaluationResult'
         '500':
-          description: Evaluation error (result.error is not null).
+          description: >-
+            Evaluation engine error. The response body is still an
+            EvaluationResult with success=false and error describing the failure.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/EvaluationResult'
         '422':
           description: Validation error for the request body.
           content:
@@ -87,38 +89,32 @@ paths:
               $ref: '#/components/schemas/EvaluationBatchRequest'
             examples:
               xapi_statement_vla:
-                summary: VLA with a jq quality requirement on actor name
+                summary: xAPI statement VLA with two JQ quality requirements
                 value:
                   vla:
-                    schema:
-                      name: xapi_statement
-                      logicalType: object
-                      properties:
-                        - name: actor
-                          logicalType: object
-                          required: true
-                      quality:
-                        - engine: JQ
-                          implementation: >-
-                            { success: (.actor.name | length > 0), details: "non-empty" }
+                    quality:
+                      - engine: JQ
+                        implementation: >-
+                          { success: (.actor.name | length > 0), details: "actor name non-empty" }
+                      - engine: JQ
+                        implementation: >-
+                          { success: (.verb.id | length > 0), details: "verb id non-empty" }
                   data:
                     actor:
                       name: Jean Dupont
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
       responses:
         '200':
-          description: Array of per-requirement evaluation results.
+          description: >-
+            Array of per-requirement evaluation results, one per quality rule.
+            Always returns 200 — check each result's success/error fields.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/EvaluationResult'
-        '500':
-          description: Evaluation error (one or more results have error set).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '422':
           description: Validation error for the request body.
           content:
@@ -143,27 +139,33 @@ paths:
             schema:
               $ref: '#/components/schemas/EvaluationFromTemplateRequest'
             examples:
-              date_template:
-                summary: Render a date template and evaluate it
+              actor_name_template:
+                summary: Render an actor.name check template and evaluate passing data
                 value:
-                  templateID: b966cfcf-9e06-4ddd-a0c5-2b0f71155496
+                  templateID: a5dee716-2129-4588-a1a2-04a4c2923a79
                   templateModel:
-                    date: '20250101T000000Z'
+                    field: actor.name
                   data:
-                    date: '20250101T000000Z'
+                    actor:
+                      name: Jean Dupont
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+              template_not_found:
+                summary: Template not found (returns 200 with success=false)
+                value:
+                  templateID: 00000000-0000-0000-0000-000000000099
+                  templateModel: {}
+                  data: {}
       responses:
         '200':
-          description: Evaluation completed (check `success`/`error` for outcome).
+          description: >-
+            Evaluation completed — always HTTP 200. Check success/error for
+            outcome. When the template is not found or fails to render,
+            success is false and error contains the reason.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationResult'
-        '500':
-          description: Evaluation error (result.error is not null).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '422':
           description: Validation error for the request body.
           content:
