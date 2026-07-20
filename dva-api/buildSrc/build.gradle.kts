@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     // Support convention plugins written in Kotlin.
     // Convention plugins are build scripts in 'src/main' that automatically become available as plugins in the main build.
@@ -17,5 +19,7 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
+    }
 }
