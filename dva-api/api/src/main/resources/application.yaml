@@ -13,9 +13,6 @@ postgres:
   user: "$DVA_POSTGRES_USER:postgres"
   password: "$DVA_POSTGRES_PASSWORD:postgres"
 
-rabbitmq:
-  host: "$DVA_RABBITMQ_HOST:localhost"
-
 processing:
   url: "$DVA_PROCESSING_URL:http://localhost:5000"
 
