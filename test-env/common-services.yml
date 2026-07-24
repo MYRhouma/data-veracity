@@ -35,18 +35,6 @@ services:
       - ./karate-configs:/app/classpath:ro
       - ./karate-logs:/app/target/karate-logs
     command: ./features/
-  aca-py:
-    image: ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.12.6
-  dva-aca-py-controller:
-    build:
-      context: ../
-      dockerfile: ./dva-acapy-controller/Dockerfile
-    init: true
-    healthcheck:
-      test: nc -z localhost 8050
-      interval: 5s
-      timeout: 5s
-      retries: 3
   dva-dashboard:
     build: ../dva-dashboard/
   vla-manager:

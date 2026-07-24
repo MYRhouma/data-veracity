@@ -13,8 +13,6 @@ At the moment, DVA has several subcomponents:
 * **API server** in [`dva-api/`](dva-api/) – gateway / entry point / connector integration
 * **Processing** in [`dva-processing/`](dva-processing/) – evaluates veracity requirements
 * **RabbitMQ** from [`rabbitmq`](https://hub.docker.com/_/rabbitmq) – message queue facilitating communication between the API server and the processing module
-* **ACA-Py Controller** in [`dva-acapy-controller/`](dva-acapy-controller/) – contains SSI/VC-related logic
-* **ACA-Py Agent** from [`ghcr.io/hyperledger/aries-cloudagent-python`](https://github.com/orgs/hyperledger/packages/container/package/aries-cloudagent-python) – an SSI cloud agent (~ wallet)
 * **PostgreSQL** from [`postgres`](https://hub.docker.com/_/postgres) – stores application state, events, and _logs_
 * **Dashboard** in [`dva-dashboard/`](dva-dashboard/) – frontend application that displays database contents on a dashboard interface
 * **VLA Manager** in [`vla-manager`](vla-manager/) – frontend application for VLAs management (creation, display, etc)
@@ -28,15 +26,13 @@ You can use the following commands to build / pull the images (from the reposito
 docker buildx build -t dva-api:latest -f dva-api/Dockerfile ./
 docker buildx build -t dva-processing:latest -f dva-processing/Dockerfile ./
 docker pull rabbitmq:4-management-alpine
-docker buildx build -t dva-aca-py-controller:latest -f dva-acapy-controller/Dockerfile ./
-docker pull ghcr.io/hyperledger/aries-cloudagent-python:py3.9-0.12.6
 docker pull postgres:17-alpine
 docker buildx build -t dva-dashboard:latest ./dva-dashboard/
 docker buildx build -t vla-manager:latest ./vla-manager/
 ```
 
 > [!NOTE]
-> Check the currently used RabbitMQ, PostgreSQL, and ACA-Py versions in [`test-env/common-services.yml`](test-env/common-services.yml).
+> Check the currently used RabbitMQ and PostgreSQL versions in [`test-env/common-services.yml`](test-env/common-services.yml).
 
 You normally do not have to do this however as you should be using Docker Compose to set up your DVA instance (see the [_test environment_](test-env/)).
 
@@ -88,7 +84,7 @@ Example requests to test functionality manually (non-exhaustive):
 | `/vla/from-templates`   | `POST`      | *nothing*                                                           | a [VLA request using templates](test-env/test-data/vla-request/request-from-templates.json)                                                                                     | `201 CREATED` and [an ID](test-env/example-outputs/id.json)                                                                                                             |
 | `/vla/{id}`             | `GET`       | `id`: a VLA ID (eg `570b22e0-2e90-4e02-8c7b-1d6d274629f3`)          | *empty*                                                                                                                                                                         | `200 OK` and the VLA template ([example](test-env/example-outputs/vla-id-get.json))                                                                                     |
 | `/attestation`          | `POST`      | *nothing*                                                           | an [AoV request](test-env/test-data/aov/timestamp-in-range/request-good.json)                                                                                                   | `200 OK` and [an ID](test-env/example-outputs/id.json)                                                                                                                  |
-| `/attestation/verify`   | `POST`      | *nothing*                                                           | an [AoV verification request](test-env/test-data/aov/verif-req.json)                                                                                                            | `200 OK` and an AoV JSON object from ACA-Py                                                                                                                            |
+| `/attestation/verify`   | `POST`      | *nothing*                                                           | an [AoV verification request](test-env/test-data/aov/verif-req.json)                                                                                                            | `200 OK` and an AoV JSON object                                                                                                                            |
 
 > [!NOTE]
 > AoV requests (`POST /attestation`) are processed asynchronously.
@@ -169,44 +165,6 @@ In the test output, you should see all PyTest tests passing.
 
   tests/test_example.py ..                                                                                                              [ 66%]
   tests/test_qc.py .                                                                                                                    [100%]
-  ```
-</details>
-
-### DVA ACA-Py Controller Module ([`dva-acapy-controller`](dva-acapy-controller/))
-
-> [!NOTE]
-> A nice way to run the tests from the repository root using Docker without having to touch your local environment:
-> ```console
-> docker run --rm -it -v ./dva-acapy-controller:/app ghcr.io/astral-sh/uv:debian-slim uv --directory /app/ run pytest
-> ```
-
-#### Setup test environment
-
-Find a way to run [uv](https://docs.astral.sh/uv) → [installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
-
-#### Run tests
-
-Set your working directory to `dva-acapy-controller/` and execute:
-```console
-uv run pytest
-```
-
-#### Expected results
-
-In the test output, you should see all PyTest tests passing.
-
-<details>
-  <summary>Example output segment (click to open)</summary>
-
-  ```
-  ============================================================ test session starts ============================================================
-  platform linux -- Python 3.12.8, pytest-8.4.1, pluggy-1.6.0
-  rootdir: /projects/uni/edge/data-veracity/dva-processing
-  configfile: pyproject.toml
-  plugins: anyio-4.9.0
-  collected 3 items
-
-  tests/test_controller.py ..                                                                                                           [100%]
   ```
 </details>
 
