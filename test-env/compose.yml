@@ -59,6 +59,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    ports: [5007:5000]
     depends_on:
       rabbit-consumer: {condition: service_healthy}
       postgres-provider: {condition: service_healthy}
@@ -76,6 +77,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    ports: [5008:5000]
     depends_on:
       rabbit-consumer: {condition: service_healthy}
       postgres-consumer: {condition: service_healthy}
