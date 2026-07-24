@@ -11,4 +11,5 @@ data class AttestationRequestDTO(
     val contract: JsonObject,
     val data: JsonElement,
     val attesterID: String,
+    val vlaId: String? = null,
 )
