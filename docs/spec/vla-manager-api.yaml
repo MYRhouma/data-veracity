@@ -1,0 +1,567 @@
+---
+openapi: 3.1.0
+info:
+  title: VLA Manager API
+  version: 0.2.0
+  description: |-
+    The **VLA Manager API** is the Python/FastAPI service hosted at the
+    **Data Intermediary**. It is the *sole owner* of both
+    **Veracity Level Agreements (VLAs)** and **VLA Templates** — no other
+    service in the Data Veracity Assurance building block is permitted to
+    read or write these resources directly.
+
+    Endpoints are grouped under two tags:
+
+    * `VLA` — create, list, fetch and bulk-delete VLAs.
+    * `Templates` — create, list, fetch, patch, render, delete and
+      bulk-delete VLA Templates. Template fields use **camelCase** on the
+      wire (e.g. `criterionType`, `targetAspect`, `evaluationMethod`).
+    * `Dev` — bulk deletion operations intended for development/test
+      environments only; they require a Bearer API key.
+servers:
+  - url: http://localhost:9099
+    description: Data Intermediary
+tags:
+  - name: VLA
+    description: Endpoints related to veracity level agreements (VLAs).
+  - name: Templates
+    description: Endpoints related to the management of VLA templates.
+  - name: Dev
+    description: Development-only bulk deletion endpoints (require Bearer API key).
+paths:
+  /template:
+    get:
+      tags: [Templates]
+      summary: List all templates
+      description: Returns all VLA Templates known to the Data Intermediary.
+      operationId: listTemplates
+      responses:
+        '200':
+          description: The list of available VLA Templates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+    post:
+      tags: [Templates]
+      summary: Create a template
+      description: Create a new VLA Template. An `id` is generated automatically.
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+            examples:
+              TestTemplate:
+                summary: Test template
+                value:
+                  name: TestTemplate
+                  description: VLA Template used for testing
+                  criterionType: VALID_INVALID
+                  targetAspect: SYNTAX
+                  evaluationMethod:
+                    engine: JQ
+                    variableSchema:
+                      properties:
+                        date:
+                          type: string
+                    implementationTemplate: '{ success: .date == "{{ date }}", details: "date matches" }'
+      responses:
+        '201':
+          description: Template created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Id'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Dev]
+      summary: Delete all templates
+      description: Bulk-deletes every VLA Template. Intended for
+        development/test environments only. Requires a Bearer API key.
+      operationId: deleteTemplates
+      security:
+        - ApiKey: []
+      responses:
+        '204':
+          description: All templates deleted.
+        '401':
+          description: Missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /template/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    get:
+      tags: [Templates]
+      summary: Get a template by ID
+      description: Returns the VLA Template identified by the given UUID.
+      operationId: getTemplate
+      responses:
+        '200':
+          description: The requested template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '404':
+          description: No template with the given ID exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags: [Templates]
+      summary: Partially update a template
+      description: |-
+        Applies a partial update to the VLA Template identified by the
+        path `id`. The request body **must** contain an `id` field that
+        matches the path parameter, otherwise the service responds with
+        `400 Bad Request`.
+      operationId: updateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplatePatch'
+      responses:
+        '200':
+          description: Template updated; returns the updated template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '400':
+          description: Path `id` does not match body `id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No template with the given ID exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Templates]
+      summary: Delete a template
+      description: Deletes the VLA Template identified by the given UUID.
+      operationId: deleteTemplate
+      responses:
+        '204':
+          description: Template deleted.
+        '404':
+          description: No template with the given ID exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /template/{id}/render:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    post:
+      tags: [Templates]
+      summary: Render a template
+      description: |-
+        Renders the template's `implementationTemplate` (a Handlebars
+        template, e.g. `{{ date }}`) with the supplied model. Returns
+        the engine and the rendered implementation string.
+      operationId: renderTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: The template model — any JSON object whose keys
+                match the variables declared in the template's
+                `variableSchema`.
+            examples:
+              DateModel:
+                summary: Date model
+                value:
+                  date: '20250101T000000Z'
+      responses:
+        '200':
+          description: Template rendered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderResult'
+              example:
+                engine: JQ
+                implementation: '{ success: .date == "20250101T000000Z", details: "date matches" }'
+        '400':
+          description: The template could not be rendered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No template with the given ID exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vla:
+    get:
+      tags: [VLA]
+      summary: List all VLAs
+      description: Returns all VLAs known to the Data Intermediary as an array.
+      operationId: listVLAs
+      responses:
+        '200':
+          description: The list of known VLAs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VLA'
+    post:
+      tags: [VLA]
+      summary: Create a VLA
+      description: Create a new Veracity Level Agreement. An ID is generated
+        automatically and injected into the stored document.
+      operationId: createVLA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VLACreate'
+            examples:
+              XapiLearningTrace:
+                summary: E2E VLA — xAPI learning trace
+                value:
+                  description: E2E VLA — xAPI learning trace
+                  schema:
+                    name: xapi_statement
+                    logicalType: object
+                    properties:
+                      - name: actor
+                        logicalType: object
+                        required: true
+                      - name: verb
+                        logicalType: object
+                        required: true
+                  quality:
+                    - engine: JQ
+                      implementation: '{ success: (.actor.name | length > 0), details: "actor name non-empty" }'
+      responses:
+        '201':
+          description: VLA created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Id'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Dev]
+      summary: Delete all VLAs
+      description: Bulk-deletes every VLA. Intended for development/test
+        environments only. Requires a Bearer API key.
+      operationId: deleteVLAs
+      security:
+        - ApiKey: []
+      responses:
+        '204':
+          description: All VLAs deleted.
+        '401':
+          description: Missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vla/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    get:
+      tags: [VLA]
+      summary: Get a VLA by ID
+      description: Returns the VLA identified by the given UUID.
+      operationId: getVLA
+      responses:
+        '200':
+          description: The requested VLA.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VLA'
+        '404':
+          description: No VLA with the given ID exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /vla/from-templates:
+    post:
+      tags: [VLA]
+      summary: Create a VLA from templates
+      description: |-
+        Creates a VLA by rendering a set of VLA templates with supplied
+        models. Each entry in `qualityTemplates` is rendered and the
+        resulting quality requirements are merged into the VLA's
+        `quality` array before persistence.
+      operationId: createVLAFromTemplates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VLANewFromTemplates'
+      responses:
+        '201':
+          description: VLA created. Returns the new VLA id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDDTO'
+        '400':
+          description: Failed to render one of the templates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: One of the referenced template ids was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      description: UUID identifying the resource.
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Bearer API key used to authorise bulk-delete operations.
+  schemas:
+    Id:
+      type: object
+      required: [id]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID of the newly created resource.
+    VLA:
+      type: object
+      additionalProperties: true
+      description: |-
+        A Veracity Level Agreement document following the Open Data
+        Contract Standard (ODCS). Stored as an arbitrary JSON object;
+        the service injects an `id` (string, UUID) field on creation.
+    VLACreate:
+      type: object
+      additionalProperties: true
+      description: |-
+        Body of `POST /vla`. All fields are optional; any subset of an
+        ODCS data contract may be supplied. An `id` is generated by the
+        service and must not be set by the client.
+      properties:
+        description:
+          type: string
+        servers:
+          type: array
+        schema:
+          type: object
+          description: An ODCS schema block (object or list of properties).
+        quality:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataQuality'
+        price:
+          type: object
+        team:
+          type: array
+        roles:
+          type: array
+        slaProperties:
+          type: array
+        support:
+          type: array
+        tags:
+          type: array
+    VLANewFromTemplates:
+      type: object
+      description: |-
+        Body of `POST /vla/from-templates`. Extends VLACreate with a
+        `qualityTemplates` array. Each entry is rendered and the
+        result is merged into the VLA's `quality` array.
+      allOf:
+        - $ref: '#/components/schemas/VLACreate'
+      required: [qualityTemplates]
+      properties:
+        qualityTemplates:
+          type: array
+          items:
+            type: object
+            required: [id, model]
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: UUID of the VLA template to render.
+              model:
+                type: object
+                description: Key-value pairs to substitute into the template.
+                additionalProperties: true
+            example:
+              id: 3c58c2fd-6d7a-4953-9f76-7c71fc3ac7e2
+              model:
+                value: ok
+    DataQuality:
+      type: object
+      required: [engine, implementation]
+      additionalProperties: false
+      properties:
+        engine:
+          $ref: '#/components/schemas/QualityEngine'
+        implementation:
+          type: string
+          description: The veracity-check implementation (e.g. a jq expression).
+    Template:
+      type: object
+      required: [id, name, criterionType, targetAspect, evaluationMethod]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+        description:
+          type: string
+        criterionType:
+          $ref: '#/components/schemas/CriterionType'
+        targetAspect:
+          $ref: '#/components/schemas/QualityAspect'
+        evaluationMethod:
+          $ref: '#/components/schemas/EvaluationMethod'
+    EvaluationMethod:
+      type: object
+      required: [engine, variableSchema, implementationTemplate]
+      additionalProperties: false
+      properties:
+        engine:
+          $ref: '#/components/schemas/QualityEngine'
+        variableSchema:
+          type: object
+          description: JSON schema describing the variables the template
+            expects when rendered.
+        implementationTemplate:
+          type: string
+          description: |-
+            A Handlebars template (e.g. `{{ date }}`) that is rendered
+            with the model supplied to `POST /template/{id}/render`.
+    TemplateCreate:
+      type: object
+      required: [name, criterionType, targetAspect, evaluationMethod]
+      additionalProperties: false
+      description: Body of `POST /template`. An `id` is generated by the
+        service and must not be supplied by the client.
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        criterionType:
+          $ref: '#/components/schemas/CriterionType'
+        targetAspect:
+          $ref: '#/components/schemas/QualityAspect'
+        evaluationMethod:
+          $ref: '#/components/schemas/EvaluationMethod'
+      example:
+        name: TestTemplate
+        description: VLA Template used for testing
+        criterionType: VALID_INVALID
+        targetAspect: SYNTAX
+        evaluationMethod:
+          engine: JQ
+          variableSchema:
+            properties:
+              date:
+                type: string
+          implementationTemplate: '{ success: .date == "{{ date }}", details: "date matches" }'
+    TemplatePatch:
+      type: object
+      required: [id]
+      additionalProperties: false
+      description: |-
+        Body of `PATCH /template/{id}`. The `id` field is **required**
+        and must match the `{id}` path parameter; otherwise the service
+        responds with `400 Bad Request`. All other fields are optional —
+        only the supplied fields are updated.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        criterionType:
+          $ref: '#/components/schemas/CriterionType'
+        targetAspect:
+          $ref: '#/components/schemas/QualityAspect'
+        evaluationMethod:
+          $ref: '#/components/schemas/EvaluationMethod'
+    RenderResult:
+      type: object
+      required: [engine, implementation]
+      additionalProperties: false
+      properties:
+        engine:
+          $ref: '#/components/schemas/QualityEngine'
+        implementation:
+          type: string
+          description: The rendered data-quality fragment.
+    QualityEngine:
+      type: string
+      enum: [SCHEMA, GREAT_EXPECTATIONS, JQ]
+    CriterionType:
+      type: string
+      enum: [VALID_INVALID, IN_RANGE, GREATER_THAN, LESS_THAN]
+    QualityAspect:
+      type: string
+      enum: [SYNTAX, TIMELINESS, ACCURACY, COMPLETENESS, CONSISTENCY]
+    Error:
+      type: object
+      required: [type, title]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+        title:
+          type: string
