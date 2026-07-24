@@ -3,6 +3,7 @@ package hu.bme.mit.ftsrg.dva.api.route
 import com.rabbitmq.client.Connection
 import com.rabbitmq.client.MessageProperties
 import hu.bme.mit.ftsrg.dva.api.resource.Attestations
+import hu.bme.mit.ftsrg.dva.dto.ErrDTO
 import hu.bme.mit.ftsrg.dva.dto.IDDTO
 import hu.bme.mit.ftsrg.dva.dto.aov.ACAPyPresentationRequestDTO
 import hu.bme.mit.ftsrg.dva.dto.aov.ACAPyPresentationResponseDTO
@@ -103,18 +104,25 @@ fun Application.aovRoutes() {
                         )
                     )
                 }
-            val acaPyResp: ACAPyPresentationResponseDTO = resp.body()
-
-            if (verifLogEntity != null) {
-                verifsRepo.update(
-                    VerifRequestLogPatch(
-                        id = verifLogEntity.id,
-                        presentationRequestData = acaPyResp.aov,
-                    )
+            if (!resp.status.isSuccess()) {
+                call.respond(
+                    resp.status,
+                    ErrDTO(type = "ACAPY_${resp.status.value}", title = resp.bodyAsText()),
                 )
-            }
+            } else {
+                val acaPyResp: ACAPyPresentationResponseDTO = resp.body()
 
-            call.respond(status = resp.status, message = acaPyResp)
+                if (verifLogEntity != null) {
+                    verifsRepo.update(
+                        VerifRequestLogPatch(
+                            id = verifLogEntity.id,
+                            presentationRequestData = acaPyResp.aov,
+                        )
+                    )
+                }
+
+                call.respond(status = resp.status, message = acaPyResp)
+            }
         }
     }
 }
