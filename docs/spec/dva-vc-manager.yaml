@@ -1,0 +1,417 @@
+openapi: 3.1.0
+info:
+  title: DVA VC Manager
+  version: 0.3.0
+  description: |-
+    Issues and verifies Attestations of Veracity (AoV) as W3C VC 2.0 JSON
+    Web Signatures (Ed25519/EdDSA via PyNaCl).
+
+    Verification is fail-closed: a JWS is only accepted when its issuer
+    did:key is present in the local whitelist. An empty whitelist rejects
+    every verification; an untrusted issuer is rejected.
+
+    Wire casing: AoV routes use camelCase to match the DVA API orchestrator;
+    admin routes use snake_case.
+  contact:
+    email: bpeter@edu.bme.hu
+servers:
+  - url: http://localhost:8001
+    description: Provider
+  - url: http://localhost:8002
+    description: Consumer
+tags:
+  - name: AoV Issue
+    description: Issue an AoV JWS credential (Ed25519/EdDSA via PyNaCl). Open — no auth.
+  - name: AoV Verify
+    description: Verify an AoV JWS credential against the fail-closed did:key whitelist. Open — no auth.
+  - name: Admin
+    description: Manage the did:key whitelist and inspect this issuer's own signing key. Requires a bearer API key.
+paths:
+  /aov/issue:
+    post:
+      tags: [AoV Issue]
+      summary: Issue an AoV JWS credential
+      description: |
+        Signs the supplied AoV payload as a W3C VC 2.0 JSON-LD JWS using the
+        service's persisted Ed25519 private key (EdDSA). The returned `jws`
+        is a compact `header.payload.signature` string. A UUID for the
+        credential is generated server-side and embedded in the JWS payload.
+      operationId: issueAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AovIssueRequest'
+            examples:
+              NettingSettlement:
+                summary: Issue an AoV for a netting settlement evaluation
+                value:
+                  validSince: '2026-07-15T10:00:00Z'
+                  subject: did:web:provider.example.com
+                  issuerId: did:web:intermediary.example.com
+                  recordId: rec-0001
+                  contractId: contract-0001
+                  dataExchangeId: xchg-0001
+                  payload: '{"netAmount":-100,"bankID":"BANK_A"}'
+                  evaluationResults:
+                    - engine: JQ
+                      timestamp: '2026-07-15T10:00:01Z'
+                      success: true
+                      details: zero-sum satisfied
+      responses:
+        '200':
+          description: The signed JWS.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AovIssueResponse'
+        '422':
+          description: Malformed request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /aov/verify:
+    post:
+      tags: [AoV Verify]
+      summary: Verify an AoV JWS credential
+      description: |
+        Verifies the Ed25519 signature of a compact AoV JWS. The issuer
+        did:key is extracted from the JWS payload and looked up in the
+        local whitelist. Fail-closed: when the whitelist is empty or the
+        issuer is not registered, `verified` is false with a descriptive
+        `reason`. A malformed JWS returns 400.
+      operationId: verifyAov
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AovVerifyRequest'
+            examples:
+              VerifyJws:
+                summary: Verify a previously issued AoV JWS
+                value:
+                  jws: 'eyJhbGciOiJFZERTQSIsInR5cCI6IlZDK0xELUpTT04rSldTIn0...'
+      responses:
+        '200':
+          description: Verification outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AovVerifyResponse'
+              examples:
+                Verified:
+                  summary: Signature valid and issuer whitelisted
+                  value:
+                    verified: true
+                Rejected:
+                  summary: Issuer not in whitelist
+                  value:
+                    verified: false
+                    reason: issuer not whitelisted
+        '400':
+          description: Malformed JWS (not a valid 3-part compact JWS).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/whitelist:
+    get:
+      tags: [Admin]
+      summary: List all whitelisted did:keys
+      description: |
+        Returns the current did:key whitelist as an array.
+
+        **Wire casing: snake_case** (`id`, `did_key`, `label`).
+      operationId: listWhitelist
+      responses:
+        '200':
+          description: Array of whitelist entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhitelistEntry'
+        '401':
+          description: Missing or invalid bearer API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [Admin]
+      summary: Add a did:key to the whitelist
+      description: |
+        Registers a new trusted attester `did:key`. Returns `201` with the
+        created entry on success. Duplicate `did_key` values return `400`.
+
+        **Wire casing: snake_case** (`did_key`, `label`).
+      operationId: addWhitelistEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhitelistAddRequest'
+            examples:
+              AddIssuer:
+                summary: Whitelist an issuer did:key
+                value:
+                  did_key: did:key:z6MktRz8iVwNh1rLKV47C2i2nMe4zwGt7SgLBjS9zw1jNuQY
+                  label: DVA VC Manager (provider)
+      responses:
+        '201':
+          description: Entry created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhitelistEntry'
+        '400':
+          description: Invalid did:key or duplicate entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid bearer API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/whitelist/{did_key}:
+    delete:
+      tags: [Admin]
+      summary: Remove a did:key from the whitelist
+      description: |
+        Deletes the whitelist entry whose `did_key` matches the URL-encoded
+        path parameter. Returns `204` on success, `404` if not found.
+
+        The `{did_key}` path parameter is the percent-encoded `did:key:...`
+        identifier — colon (`:`) must be encoded as `%3A` per RFC 3986.
+      operationId: removeWhitelistEntry
+      parameters:
+        - name: did_key
+          in: path
+          required: true
+          description: URL-encoded did:key identifier to remove (e.g. `did%3Akey%3Az6Mk...`).
+          schema:
+            type: string
+          example: did%3Akey%3Az6Mku8XYifPt5tfL93VpJhFWuoyQDt6bTRqfWestrpo6YM5d
+      responses:
+        '204':
+          description: Entry removed.
+        '401':
+          description: Missing or invalid bearer API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: did:key not in whitelist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/keys:
+    get:
+      tags: [Admin]
+      summary: Get this issuer's own did:key
+      description: |
+        Returns the `did:key` identifier derived from the service's persisted
+        Ed25519 signing key. Read-only — no private bytes are ever exposed.
+
+        **Wire casing: snake_case** (`issuer_did_key`, `key_path`).
+      operationId: getOwnKey
+      responses:
+        '200':
+          description: Issuer's own did:key and persisted key location.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnKey'
+        '401':
+          description: Missing or invalid bearer API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |-
+        Bearer API key. Send as `Authorization: Bearer <DVA_VC_MANAGER_API_KEY>`.
+        The service fails closed (`401`) for all `/admin/*` routes when the
+        `DVA_VC_MANAGER_API_KEY` environment variable is unset.
+  schemas:
+    QualityEngine:
+      type: string
+      enum: [SCHEMA, GREAT_EXPECTATIONS, JQ]
+      description: The evaluation engine that produced a veracity result.
+    EvaluationResult:
+      type: object
+      description: |-
+        Outcome of one VLA requirement evaluation, embedded in `AovIssueRequest.
+        evaluationResults`.
+
+        **Wire casing: camelCase** (`engine`, `timestamp`, `success`,
+        `details`, `error`).
+      required: [timestamp, success]
+      additionalProperties: false
+      properties:
+        engine:
+          $ref: '#/components/schemas/QualityEngine'
+        timestamp:
+          type: string
+          format: date-time
+          description: RFC 3339 timestamp marking when the evaluation ran.
+        success:
+          type: boolean
+          description: Whether the evaluation passed.
+        details:
+          type: string
+          nullable: true
+          description: Human-readable success explanation when `success` is true.
+        error:
+          type: string
+          nullable: true
+          description: Human-readable failure explanation when `success` is false.
+      example:
+        engine: JQ
+        timestamp: '2026-01-31T17:48:10.904264Z'
+        success: true
+        details: Actor name is correct
+    AovIssueRequest:
+      type: object
+      description: Body of POST /aov/issue. Wire casing: camelCase.
+      additionalProperties: false
+      required: [validSince, subject, issuerId, recordId, contractId, dataExchangeId, payload, evaluationResults]
+      properties:
+        validSince:
+          type: string
+          format: date-time
+          description: Earliest moment from which the AoV is considered valid.
+        subject:
+          type: string
+          description: The credential subject's identifier (e.g. a did:web).
+        issuerId:
+          type: string
+          description: The logical issuer identifier (separate from the did:key).
+        recordId:
+          type: string
+          description: External record identifier being attested.
+        contractId:
+          type: string
+          description: The data-contract identifier this AoV covers.
+        dataExchangeId:
+          type: string
+          description: The data-exchange identifier this AoV covers.
+        payload:
+          type: string
+          description: The opaque payload (stringified JSON) to sign as the JWS payload.
+        evaluationResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResult'
+          description: The VLA evaluation results carried inside the AoV.
+    AovIssueResponse:
+      type: object
+      description: Response of POST /aov/issue. Wire casing: camelCase.
+      additionalProperties: false
+      required: [jws]
+      properties:
+        jws:
+          type: string
+          description: Compact JWS header.payload.signature (Ed25519/EdDSA).
+    AovVerifyRequest:
+      type: object
+      description: Body of POST /aov/verify. Wire casing: camelCase.
+      additionalProperties: false
+      required: [jws]
+      properties:
+        jws:
+          type: string
+          description: Compact JWS to verify (header.payload.signature).
+    AovVerifyResponse:
+      type: object
+      description: Response of POST /aov/verify.
+      additionalProperties: false
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+          description: Whether the JWS is well-formed, correctly signed, and the issuer is whitelisted.
+        reason:
+          type: string
+          nullable: true
+          description: Present when verified is false. Explains why verification failed.
+    WhitelistEntry:
+      type: object
+      description: |-
+        A single whitelist entry. **Wire casing: snake_case** (`id`, `did_key`,
+        `label`).
+      additionalProperties: false
+      required: [id, did_key]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal UUID assigned to this whitelist entry.
+        did_key:
+          type: string
+          description: The attester's `did:key` identifier (e.g. `did:key:z6Mk...`).
+        label:
+          type: string
+          nullable: true
+          description: Optional human-readable label for the attester.
+    WhitelistAddRequest:
+      type: object
+      description: |-
+        Body of `POST /admin/whitelist`. **Wire casing: snake_case**
+        (`did_key`, `label`).
+      additionalProperties: false
+      required: [did_key]
+      properties:
+        did_key:
+          type: string
+          description: The did:key identifier to whitelist.
+        label:
+          type: string
+          nullable: true
+          description: Optional human-readable label.
+    OwnKey:
+      type: object
+      description: |-
+        This issuer's own did:key plus the persisted private-key location.
+        **Wire casing: snake_case** (`issuer_did_key`, `key_path`). Private
+        bytes are never exposed.
+      additionalProperties: false
+      required: [issuer_did_key, key_path]
+      properties:
+        issuer_did_key:
+          type: string
+          description: The did:key identifier derived from this service's Ed25519 public key.
+        key_path:
+          type: string
+          description: Filesystem path where the signing key is persisted (no private bytes).
+    Error:
+      type: object
+      description: RFC 7807-style problem object emitted on all error responses.
+      additionalProperties: false
+      required: [type, title]
+      properties:
+        type:
+          type: string
+          description: A URI reference identifying the problem type.
+        title:
+          type: string
+          description: Short human-readable summary of the problem.
+        detail:
+          type: string
+          nullable: true
+          description: Longer human-readable explanation specific to this occurrence.
