@@ -16,6 +16,6 @@ def validate(data: Any, schema: str) -> JSONSchemaValidationResult:
     try:
         jsvalidate(instance=data, schema=schema)
     except ValidationError as e:
-        return JSONSchemaValidationResult(success=False, errors=e)
+        return JSONSchemaValidationResult(success=False, errors=str(e))
 
-    return JSONSchemaValidationResult(success=True, errors=None)
+    return JSONSchemaValidationResult(success=True)

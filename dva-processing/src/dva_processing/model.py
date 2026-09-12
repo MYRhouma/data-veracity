@@ -50,7 +50,9 @@ class JQResult(BaseModel):
 
 class JSONSchemaValidationResult(BaseModel):
     success: bool
-    errors: str
+    # Rendered from the jsonschema ValidationError; absent when the data
+    # conforms.
+    errors: Optional[str] = None
 
 
 class JSONToDFSchemaColumnSpec(BaseModel):
