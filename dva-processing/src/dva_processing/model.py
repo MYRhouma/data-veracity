@@ -35,29 +35,6 @@ class EvaluationResult(BaseModel):
     error: Optional[str] = None
 
 
-class AoVRequest(BaseModel):
-    id: str
-    exchangeID: str
-    contract: dict[str, Any]
-    data: Any
-    attesterID: str
-
-
-class AoVGenerationRequestPayload(BaseModel):
-    success: bool
-    results: list[EvaluationResult]
-
-
-class AoVGenerationRequest(BaseModel):
-    request_id: str
-    exchange_id: str
-    contract_id: str
-    subject: str
-    issuer_id: str
-    payload: AoVGenerationRequestPayload
-    target: str
-
-
 class JQResult(BaseModel):
     success: bool
     details: str
