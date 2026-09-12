@@ -9,11 +9,11 @@ from .engines import json_schema as schema
 from .log import get_logger
 from .model import (
     EvaluationResult,
+    GreatExpectationParams,
     JQResult,
     JSONSchemaValidationResult,
     QualityEngine,
     Requirement,
-    GreatExpectationParams,
 )
 from .util import extract_df, now
 

@@ -1,6 +1,6 @@
-import pandas as pd
-
 from datetime import datetime, timezone
+
+import pandas as pd
 from jsonpath_ng import parse as jp_parse
 
 from .model import JSONToDFSchema

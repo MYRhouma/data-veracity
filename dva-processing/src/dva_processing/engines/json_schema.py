@@ -2,7 +2,8 @@ import html
 import json
 from typing import Any
 
-from jsonschema import ValidationError, validate as jsvalidate
+from jsonschema import ValidationError
+from jsonschema import validate as jsvalidate
 
 from ..model import JSONSchemaValidationResult
 
