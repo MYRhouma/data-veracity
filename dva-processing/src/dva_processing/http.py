@@ -1,13 +1,18 @@
 from fastapi import FastAPI, status
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .errors import http_exception_handler
 from .log import get_logger
 from .model import EvaluationResult
 from .processing import EvaluationRequest, handle_eval_request
 
 logger = get_logger()
 app = FastAPI()
+
+# Render errors as the spec's {type, title} rather than FastAPI's {detail}.
+# Body validation keeps FastAPI's own 422, which the spec documents separately.
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 
 @app.post("/evaluate")
@@ -20,13 +25,3 @@ def process_request(
         logger.warning("Error during evaluation", error=result.error)
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     return result
-
-
-@app.exception_handler(RequestValidationError)
-def handle_validation_exception(
-    request: EvaluationRequest,
-    err: RequestValidationError,
-    response: Response,
-):
-    logger.error("Validation error during request processing", error=err)
-    response.status_code = status.HTTP_422_UNPROCESSABLE_CONTENT

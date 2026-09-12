@@ -35,6 +35,14 @@ class EvaluationResult(BaseModel):
     error: Optional[str] = None
 
 
+class ErrDTO(BaseModel):
+    """Problem detail returned on error responses (spec ``Error``)."""
+
+    type: str
+    title: str
+    detail: Optional[str] = None
+
+
 class JQResult(BaseModel):
     success: bool
     details: str
