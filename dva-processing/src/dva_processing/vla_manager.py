@@ -12,7 +12,7 @@ from uuid import UUID
 
 import requests
 
-from .config import VLA_MANAGER_URL
+from .config import cfg
 from .log import get_logger
 
 logger = get_logger()
@@ -36,7 +36,7 @@ class VLAManagerError(Exception):
 
 def fetch_template(template_id: UUID) -> dict[str, Any]:
     """Return the VLA template with the given ID."""
-    url = f"{VLA_MANAGER_URL}/template/{template_id}"
+    url = f"{cfg.vla_manager_url}/template/{template_id}"
     logger.debug("Fetching template from the VLA Manager API", url=url)
     try:
         resp = requests.get(url, timeout=TIMEOUT_SECONDS)

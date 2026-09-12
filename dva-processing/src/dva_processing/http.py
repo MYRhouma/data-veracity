@@ -9,7 +9,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .config import OPENAPI_FILE
+from .config import cfg
 from .errors import http_exception_handler, unknown_engine_handler
 from .eval import UnknownEngineError
 from .log import get_logger
@@ -21,13 +21,13 @@ logger = get_logger()
 def _load_openapi_schema(app: FastAPI) -> dict[str, Any]:
     """Return the hand-written spec, or FastAPI's generated one if absent."""
     try:
-        with open(OPENAPI_FILE, encoding="utf-8") as fh:
+        with open(cfg.openapi_file, encoding="utf-8") as fh:
             return yaml.safe_load(fh)
     except FileNotFoundError:
         logger.warning(
             "OpenAPI spec not found, falling back to the auto-generated schema; "
             "set DVA_PROCESSING_OPENAPI_FILE to the hand-written spec",
-            openapi_file=OPENAPI_FILE,
+            openapi_file=cfg.openapi_file,
         )
         return get_openapi(
             title=app.title,
@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
         ``openapi_url``.  Keeping the reference external means the shared
         document stays the single definition rather than being copied in.
         """
-        shared = Path(OPENAPI_FILE).parent / "components.yaml"
+        shared = Path(cfg.openapi_file).parent / "components.yaml"
         if not shared.is_file():
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, "No shared schemas available"

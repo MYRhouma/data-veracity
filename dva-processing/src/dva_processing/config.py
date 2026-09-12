@@ -20,7 +20,18 @@ LOG_LEVEL = env.get("DVA_LOG_LEVEL", default="warn")
 
 
 class Configuration(BaseModel):
+    """
+    Settings as the rest of the module reads them.
+
+    Everything goes through ``cfg`` rather than through the constants
+    above, so a caller — the CLI raising the log level, a test pointing at
+    a different spec — can override one without reaching into every
+    importer.
+    """
+
     log_level: str = LOG_LEVEL
+    vla_manager_url: str = VLA_MANAGER_URL
+    openapi_file: str = OPENAPI_FILE
 
 
 cfg = Configuration()
