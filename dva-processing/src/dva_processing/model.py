@@ -1,9 +1,10 @@
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any, Optional
+from uuid import UUID
 
 from open_data_contract_standard.model import DataQuality, OpenDataContractStandard
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CapitalStrEnum(StrEnum):
@@ -29,6 +30,16 @@ class EvaluateBatchRequest(BaseModel):
     # A VLA is an ODCS data contract; its requirements are the DataQuality
     # entries in the `quality` array of each of its schema objects.
     vla: OpenDataContractStandard
+    data: Any
+
+
+class EvaluationFromTemplateRequest(BaseModel):
+    # Wire format is camelCase with the DVA's `...ID` spelling, as in the
+    # DVA API's own request bodies; snake_case stays accepted on input.
+    model_config = ConfigDict(populate_by_name=True)
+
+    template_id: UUID = Field(alias="templateID")
+    template_model: dict[str, Any] = Field(alias="templateModel")
     data: Any
 
 

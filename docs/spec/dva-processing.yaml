@@ -158,6 +158,80 @@ paths:
                 $ref: '#/components/schemas/ValidationError'
 
 
+  /evaluate/from-template:
+    post:
+      tags: [Evaluation]
+      summary: Render a VLA template and evaluate the result against data
+      description: >-
+        Fetches the template named by `templateID` from the VLA Manager,
+        renders its implementation template with `templateModel`, and
+        evaluates the requirement that comes out against `data`.  Useful for
+        trying a template out while building a VLA.
+      operationId: evaluateFromTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationFromTemplateRequest'
+            examples:
+              actorNameTemplate:
+                summary: Render an actor-name check and evaluate conforming data
+                value:
+                  templateID: a5dee716-2129-4588-a1a2-04a4c2923a79
+                  templateModel:
+                    field: actor.name
+                  data:
+                    actor:
+                      name: Jean Dupont
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+      responses:
+        '200':
+          description: The rendered requirement was evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+        '400':
+          description: >-
+            The template could not be rendered with the given model, or it
+            names an engine this service does not implement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The VLA Manager has no template with the given ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Malformed request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: >-
+            The engine failed while evaluating.  The body is still an
+            `EvaluationResult`, with `success` false and `error` describing
+            the failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+        '502':
+          description: >-
+            The VLA Manager could not be reached, or answered with something
+            unusable as a template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
 components:
   schemas:
     EvaluationRequest:
@@ -181,6 +255,28 @@ components:
           $ref: '#/components/schemas/VLA'
         data:
           description: The data document to evaluate every requirement against.
+
+    EvaluationFromTemplateRequest:
+      type: object
+      description: Body of `POST /evaluate/from-template`.
+      required: [templateID, templateModel, data]
+      additionalProperties: false
+      properties:
+        templateID:
+          type: string
+          format: uuid
+          description: ID of the VLA template to fetch and render.
+          examples: [a5dee716-2129-4588-a1a2-04a4c2923a79]
+        templateModel:
+          type: object
+          description: >-
+            The model to render the template with, per its `variableSchema`:
+            keys are the template's placeholders, values their
+            substitutions.
+          additionalProperties: true
+        data:
+          description: >-
+            The data document to evaluate the rendered requirement against.
 
     VLA:
       type: object

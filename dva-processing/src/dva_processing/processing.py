@@ -4,8 +4,15 @@ from open_data_contract_standard.model import DataQuality
 
 from .eval import eval_requirement, parse_engine
 from .log import get_logger
-from .model import EvaluateBatchRequest, EvaluationRequest, EvaluationResult
+from .model import (
+    EvaluateBatchRequest,
+    EvaluationFromTemplateRequest,
+    EvaluationRequest,
+    EvaluationResult,
+)
+from .templates import render_template
 from .util import now
+from .vla_manager import VLAManagerError, fetch_template
 
 logger = get_logger()
 
@@ -47,3 +54,26 @@ def handle_eval_batch_request(request: EvaluateBatchRequest) -> list[EvaluationR
     if not results:
         logger.warning("Nothing was evaluated from this VLA")
     return results
+
+
+def handle_eval_from_template_request(
+    request: EvaluationFromTemplateRequest,
+) -> EvaluationResult:
+    logger.debug("Handling an evaluate-from-template request", request=request)
+    template = fetch_template(request.template_id)
+
+    method: dict[str, Any] = template.get("evaluationMethod") or {}
+    missing = {"engine", "implementationTemplate"} - method.keys()
+    if missing:
+        raise VLAManagerError(
+            f"Template {request.template_id} has no "
+            f"{', '.join(sorted(missing))} to evaluate with"
+        )
+
+    requirement = DataQuality(
+        engine=method["engine"],
+        implementation=render_template(
+            method["implementationTemplate"], request.template_model
+        ),
+    )
+    return _evaluate(request.data, requirement)
