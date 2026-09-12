@@ -1,0 +1,185 @@
+---
+openapi: 3.1.0
+
+
+info:
+  title: DVA Processing
+  version: 0.1.0
+  description: >-
+    Stateless veracity-check engine.
+    Evaluates data-quality requirements — expressed as ODCS `DataQuality`
+    entries, the same form they take inside a
+    **Veracity Level Agreement (VLA)** — against supplied data,
+    and returns one `EvaluationResult` per requirement.
+  contact:
+    email: bpeter@edu.bme.hu
+
+
+servers:
+  - url: http://localhost:5007
+    description: Provider
+  - url: http://localhost:5008
+    description: Consumer
+tags:
+  - name: Evaluation
+    description: Endpoints that evaluate veracity requirements against data.
+
+
+paths:
+  /evaluate:
+    post:
+      tags: [Evaluation]
+      summary: Evaluate a single requirement against data
+      description: >-
+        Runs one requirement's implementation on the supplied data with the
+        engine it names.  Useful for trying a requirement out while building
+        a VLA.
+      operationId: evaluate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+            examples:
+              jqNonEmptyActorName:
+                summary: jq requirement checking that the actor name is non-empty
+                value:
+                  requirement:
+                    engine: JQ
+                    implementation: >-
+                      { success: (.actor.name | length > 0),
+                        details: "actor name non-empty" }
+                  data:
+                    actor:
+                      name: Jean Dupont
+                    verb:
+                      id: http://adlnet.gov/expapi/verbs/interacted
+      responses:
+        '200':
+          description: The requirement was evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+        '400':
+          description: >-
+            The requirement names an engine this service does not implement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Malformed request body or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: >-
+            The engine failed while evaluating.  The body is still an
+            `EvaluationResult`, with `success` false and `error` describing
+            the failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResult'
+
+
+components:
+  schemas:
+    EvaluationRequest:
+      type: object
+      description: Body of `POST /evaluate`.
+      required: [requirement, data]
+      additionalProperties: false
+      properties:
+        requirement:
+          $ref: '#/components/schemas/DataQuality'
+        data:
+          description: The data document to evaluate the requirement against.
+
+    DataQuality:
+      type: object
+      description: >-
+        A single veracity requirement, as an
+        [ODCS](https://bitol-io.github.io/open-data-contract-standard/)
+        `DataQuality` entry — the same object that appears in a VLA's
+        `schema[].quality` array.  Every ODCS field is accepted; the two
+        below are the ones this service reads.
+      properties:
+        engine:
+          description: >-
+            The engine to evaluate `implementation` with.  ODCS leaves this
+            a free-form string, so a value outside `QualityEngine` is only
+            rejected once evaluation reaches for it — with a `400`.
+          $ref: '#/components/schemas/QualityEngine'
+        implementation:
+          type: string
+          description: >-
+            The engine-specific check.  For `JQ` this is a jq expression
+            whose every output must be an object
+            `{ success: boolean, details: string }`; for `SCHEMA` a JSON
+            Schema document; for `GREAT_EXPECTATIONS` a YAML expectation
+            definition.
+
+    QualityEngine:
+      $ref: './components.yaml#/schemas/QualityEngine'
+
+    EvaluationResult:
+      $ref: './components.yaml#/schemas/EvaluationResult'
+
+    Error:
+      type: object
+      description: >-
+        RFC 9457-style problem object emitted on every error the service
+        raises itself.
+      required: [type, title]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          description: >-
+            Machine-readable problem type, normally the HTTP status
+            constant (e.g. `NOT_FOUND`).
+          examples: [UNKNOWN_ENGINE]
+        title:
+          type: string
+          description: Short human-readable summary of the problem.
+          examples: [Unknown quality engine]
+        detail:
+          type: string
+          description: >-
+            Longer human-readable explanation specific to this occurrence.
+
+    ValidationError:
+      type: object
+      description: >-
+        Request-body validation failures, reported by the framework rather
+        than by the service, and so shaped differently from `Error`.
+      required: [detail]
+      additionalProperties: false
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            required: [type, loc, msg]
+            properties:
+              type:
+                type: string
+                description: Validation failure kind, e.g. `missing`.
+                examples: [missing]
+              loc:
+                type: array
+                description: Path to the offending field.
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                examples: [[body, requirement]]
+              msg:
+                type: string
+                examples: [Field required]
+              input:
+                description: The value that failed validation.

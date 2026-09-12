@@ -18,6 +18,7 @@ dependencies = [
 	"plac>=1.4.5",
 	"psycopg[binary]>=3.2.9",
 	"pydantic>=2.10.6",
+	"pyyaml>=6.0",
 	"requests>=2.32.3",
 	"structlog>=25.1.0",
 	"uvicorn>=0.34.3",

@@ -41,6 +41,11 @@ RUN apt-get update && \
 # Copy built project
 COPY --from=build --chown=app:app /app/.venv/ /app/.venv/
 
+COPY ./docs/spec/dva-processing.yaml /app/openapi.yaml
+COPY ./docs/spec/components.yaml /app/components.yaml
+
+ENV DVA_PROCESSING_OPENAPI_FILE=/app/openapi.yaml
+
 # Run app
 ENTRYPOINT ["/app/.venv/bin/dva-processing"]
 
