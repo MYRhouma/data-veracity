@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any, Optional
 
-from open_data_contract_standard.model import DataQuality
+from open_data_contract_standard.model import DataQuality, OpenDataContractStandard
 from pydantic import BaseModel, field_validator
 
 
@@ -22,6 +22,13 @@ class EvaluationRequest(BaseModel):
     # ODCS types `engine` as a free-form string, so an unusable engine is
     # only rejected once `eval.eval_requirement` gets to it.
     requirement: DataQuality
+    data: Any
+
+
+class EvaluateBatchRequest(BaseModel):
+    # A VLA is an ODCS data contract; its requirements are the DataQuality
+    # entries in the `quality` array of each of its schema objects.
+    vla: OpenDataContractStandard
     data: Any
 
 
