@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any, Optional
 
+from open_data_contract_standard.model import DataQuality
 from pydantic import BaseModel, field_validator
 
 
@@ -17,18 +18,17 @@ class QualityEngine(CapitalStrEnum):
     jq = auto()
 
 
-class Requirement(BaseModel):
-    implementation: str
-    engine: QualityEngine
-
-
 class EvaluationRequest(BaseModel):
-    requirement: Requirement
+    # ODCS types `engine` as a free-form string, so an unusable engine is
+    # only rejected once `eval.eval_requirement` gets to it.
+    requirement: DataQuality
     data: Any
 
 
 class EvaluationResult(BaseModel):
-    engine: Optional[QualityEngine]
+    # An EvaluationResult only exists once an engine has run, so the engine
+    # is always known – see `./components.yaml#/schemas/EvaluationResult`.
+    engine: QualityEngine
     timestamp: datetime
     success: bool
     details: Optional[str] = None

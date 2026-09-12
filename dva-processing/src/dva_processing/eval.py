@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from great_expectations.core import ExpectationValidationResult
+from open_data_contract_standard.model import DataQuality
 
 from .engines import great_expectations as ge
 from .engines import jq
@@ -13,32 +14,48 @@ from .model import (
     JQResult,
     JSONSchemaValidationResult,
     QualityEngine,
-    Requirement,
 )
 from .util import extract_df, now
 
 logger = get_logger()
 
 
-def eval_requirement(data: Any, requirement: Requirement) -> EvaluationResult:
-    match requirement.engine:
+class UnknownEngineError(ValueError):
+    """A requirement names an engine this service cannot run."""
+
+    def __init__(self, engine: str | None) -> None:
+        self.engine = engine
+        super().__init__(f"Unknown quality engine {engine}")
+
+
+def parse_engine(engine: str | None) -> QualityEngine:
+    """Resolve an ODCS ``DataQuality.engine`` to an engine we implement.
+
+    ODCS types ``engine`` as a free-form string, so a requirement naming an
+    unsupported engine deserialises happily; this is where it is caught.
+    """
+    try:
+        return QualityEngine(engine)
+    except ValueError as e:
+        logger.error(f"Unknown quality engine {engine}", engine=engine)
+        raise UnknownEngineError(engine) from e
+
+
+def eval_requirement(data: Any, requirement: DataQuality) -> EvaluationResult:
+    match parse_engine(requirement.engine):
         case QualityEngine.great_expectations:
             res = eval_requirement_ge(data, requirement)
         case QualityEngine.schema:
             res = eval_requirement_schema(data, requirement)
         case QualityEngine.jq:
             res = eval_requirement_jq(data, requirement)
-        case _:
-            logger.error(
-                f"Unknown quality engine {requirement.engine}",
-                engine=requirement.engine,
-            )
-            raise ValueError("Unknown quality engine")
+        case engine:  # unreachable while every engine above is handled
+            raise UnknownEngineError(engine)
     logger.info(f"Result of requirement evaluation: {res.success}", result=res)
     return res
 
 
-def eval_requirement_ge(data: Any, requirement: Requirement) -> EvaluationResult:
+def eval_requirement_ge(data: Any, requirement: DataQuality) -> EvaluationResult:
     logger.debug("Evaluating requirement using Great Expectations")
 
     ge_params: GreatExpectationParams = ge.parse_implementation(
@@ -64,7 +81,7 @@ def eval_requirement_ge(data: Any, requirement: Requirement) -> EvaluationResult
     )
 
 
-def eval_requirement_schema(data: Any, requirement: Requirement) -> EvaluationResult:
+def eval_requirement_schema(data: Any, requirement: DataQuality) -> EvaluationResult:
     logger.debug("Evaluating JSON schema conformance requirement")
     result: JSONSchemaValidationResult = schema.validate(
         data, requirement.implementation
@@ -78,7 +95,7 @@ def eval_requirement_schema(data: Any, requirement: Requirement) -> EvaluationRe
     )
 
 
-def eval_requirement_jq(data: Any, requirement: Requirement) -> EvaluationResult:
+def eval_requirement_jq(data: Any, requirement: DataQuality) -> EvaluationResult:
     logger.debug("Evaluating JQ expression requirement")
     results: list[JQResult] = jq.eval_expression(data, requirement.implementation)
     # A jq expression yields one JQResult per output value, so the

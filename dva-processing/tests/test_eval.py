@@ -1,9 +1,11 @@
+from open_data_contract_standard.model import DataQuality
+
 from dva_processing.eval import eval_requirement
-from dva_processing.model import EvaluationResult, QualityEngine, Requirement
+from dva_processing.model import EvaluationResult, QualityEngine
 
 
 def test_eval_ge_column_values_between():
-    requirement = Requirement(
+    requirement = DataQuality(
         engine=QualityEngine.great_expectations,
         implementation="""
 type: ExpectColumnValuesToBeBetween
@@ -38,7 +40,7 @@ meta:
 
 
 def test_eval_ge_column_length_between():
-    requirement = Requirement(
+    requirement = DataQuality(
         engine=QualityEngine.great_expectations,
         implementation="""
 type: ExpectColumnValueLengthsToBeBetween

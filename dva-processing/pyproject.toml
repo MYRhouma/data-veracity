@@ -13,6 +13,7 @@ dependencies = [
 	"jsonschema>=4.23.0",
 	"jq>=1.10.0",
 	"numpy==1.26.4",
+	"open-data-contract-standard>=3.2.0",
 	"pandas>=2.1.1",
 	"plac>=1.4.5",
 	"psycopg[binary]>=3.2.9",

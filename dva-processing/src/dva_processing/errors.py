@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
+from .eval import UnknownEngineError
 from .model import ErrDTO
 
 
@@ -61,4 +62,24 @@ async def http_exception_handler(
         status_code=exc.status_code,
         content=_as_problem(exc.status_code, exc.detail).model_dump(exclude_none=True),
         headers=getattr(exc, "headers", None),
+    )
+
+
+async def unknown_engine_handler(
+    request: Request, exc: UnknownEngineError
+) -> JSONResponse:
+    """
+    Answer a requirement naming an engine we cannot run with a ``400``.
+
+    ODCS leaves ``DataQuality.engine`` a free-form string, so this is a
+    body the framework cannot reject for us — it only surfaces once an
+    evaluation reaches for the engine.
+    """
+    return JSONResponse(
+        status_code=HTTPStatus.BAD_REQUEST,
+        content=ErrDTO(
+            type="UNKNOWN_ENGINE",
+            title="Unknown quality engine",
+            detail=str(exc),
+        ).model_dump(),
     )
